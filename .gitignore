@@ -1,0 +1,8 @@
+# 自動で作られるもの（共有する必要はありません）
+dist/
+backups/
+content/_trash/
+assets/_trash/
+__pycache__/
+*.pyc
+.DS_Store

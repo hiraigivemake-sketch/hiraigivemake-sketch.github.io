@@ -1,0 +1,51 @@
+{
+  "_comment": "サイトのトップページです。一番上の大きな写真・キャッチコピー、各セクションの紹介文をここで変更できます。",
+  "template": "home",
+  "title": "トップ",
+  "seo_title": "24時間体制のクリケア訪問看護ステーション｜奈良県香芝.上牧.大和高田.葛城.広陵.王寺.三郷",
+  "description": "奈良県香芝市を拠点に、小児・精神・予防・終末期まで幅広く対応。24時間緊急訪問OKのクリケア訪問看護ステーションは、ご本人とご家族の安心を支えます。",
+  "hero": {
+    "title_html": "<span class=\"accent\">確かな看護</span>と<br>24時間365日の安心を。",
+    "button_primary": "お問い合わせ→",
+    "button_secondary": "一緒に働く→",
+    "illustration": "/assets/images/s-1349x429_v-fms_webp_769807c3-beac-4162-87f4-2f2add73a7dd_small.webp",
+    "photo": "/assets/images/s-960x720_v-fs_webp_64722428-4ec4-4eab-b45e-53321df6c166.webp",
+    "photo_alt": "利用者様の自宅を訪問する看護師"
+  },
+  "notice": {
+    "text_html": "新店：クリケア訪問看護ステーション斑鳩事業所（仮称）<br>オープン予定！",
+    "url": "/recruit/"
+  },
+  "service": {
+    "label": "サービス内容",
+    "title_en": "Service",
+    "text": "24時間対応の緊急訪問体制で、休日や夜間も安心。小児や予防、精神疾患、終末期など多様なニーズに対応し、利用者様一人ひとりの思いや価値観を尊重した訪問看護サービスを提供しています。",
+    "image": "/assets/images/s-1280x1280_v-fms_webp_aa650d95-4cb0-4e70-970c-fe65889fec18_small.webp"
+  },
+  "staff": {
+    "label": "スタッフ紹介",
+    "title_en": "Staff",
+    "text": "地域に根ざした訪問看護に携わっている、信頼できるスタッフたちをご紹介します。",
+    "photos": [
+      "/assets/images/s-1024x768_v-fs_webp_1ac34bf9-3f42-47b8-9b97-c63d7cbade4a_small.webp",
+      "/assets/images/s-1024x768_v-fs_webp_b7659bcd-159e-41b5-9bf0-b8527d65578e_small.webp",
+      "/assets/images/s-1024x768_v-fs_webp_b9197875-39f8-4e25-8fc6-4089d48ad4e8_small.webp",
+      "/assets/images/s-1024x768_v-fs_webp_83ebbea7-ffb9-432c-85c8-30492a132f74_small.webp",
+      "/assets/images/s-1024x768_v-fs_webp_2dddc43f-7123-418b-b1b0-a060b8be5d44_small.webp"
+    ]
+  },
+  "recruit": {
+    "label": "採用情報",
+    "title_en": "Recruitment",
+    "subtitle_html": "クリケア訪問看護ステーションでは、<br>看護師・療法士など専門職の採用を行っています。",
+    "text": "利用者様に寄り添い、自分らしい働き方を大切にできる職場です。地域に根ざした訪問看護・リハビリを一緒に届けませんか？",
+    "image": "/assets/images/s-1620x1080_v-fms_webp_6bed32ac-24b3-4685-a5ba-91a9a55e8266_small.webp",
+    "illustration": "/assets/images/s-1349x429_v-fms_webp_769807c3-beac-4162-87f4-2f2add73a7dd_middle.webp"
+  },
+  "company": {
+    "label": "会社概要",
+    "title_en": "Company",
+    "text": "クリケア訪問看護ステーションを運営する株式会社GIVE&MAKEは、医療・福祉・教育の現場に貢献する多職種チームの力を大切にし、一人ひとりの「その人らしさ」を支える社会づくりを目指しています。",
+    "image": "/assets/images/s-1280x1280_v-fms_webp_321c1b5a-6c88-4132-9466-c3cba243a88c_small.webp"
+  }
+}

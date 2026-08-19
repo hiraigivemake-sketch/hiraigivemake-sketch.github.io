@@ -1,0 +1,24 @@
+{{> head }}
+<section class="page-head">
+  <div class="container">
+    <h1 class="heading__en" style="font-family:var(--f-body);font-size:38px;line-height:1.5">{{ post.title }}</h1>
+    <div class="page-head__actions">
+      <a class="btn btn--square" href="/contact/">お問い合わせ→</a>
+      <a class="btn btn--square btn--fill" href="/entry/">一緒に働く→</a>
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <article class="article">
+      <div class="article__body">{{{ post.body_html }}}</div>
+      <nav class="article-nav">
+        {{# prev_post }}<a class="btn" href="{{ url }}">← 前の記事</a>{{/ prev_post }}
+        <a class="btn" href="/blog/">一覧を見る</a>
+        {{# next_post }}<a class="btn" href="{{ url }}">次の記事 →</a>{{/ next_post }}
+      </nav>
+    </article>
+  </div>
+</section>
+{{> foot }}

@@ -1,0 +1,16 @@
+{{> head }}
+{{> page-head }}
+<section class="section section--tight">
+  <div class="container">
+    <div class="card-grid">
+      {{# blog }}
+      <a class="post-card" href="{{ url }}">
+        <img class="post-card__thumb" src="{{ thumbnail }}" alt="" loading="lazy">
+        <span class="post-card__date">{{ date_display }}</span>
+        <span class="post-card__title">{{ title }}</span>
+      </a>
+      {{/ blog }}
+    </div>
+  </div>
+</section>
+{{> foot }}

@@ -1,0 +1,65 @@
+{
+  "_comment": "お問い合わせページです。入力項目の追加・削除や、フォームの送信先設定ができます。",
+  "template": "contact",
+  "title": "お問い合わせ",
+  "label": "お問い合わせ",
+  "title_en": "Contact",
+  "seo_title": "お問い合わせフォーム｜クリケア訪問看護ステーション（奈良県香芝市）",
+  "description": "訪問看護のご依頼・ご相談はこちらのフォームからお問い合わせください。",
+  "hide_cta": true,
+  "google_form": {
+    "mode": "native",
+    "action": "",
+    "embed_url": "",
+    "entries": {
+      "name": "",
+      "tel": "",
+      "email": "",
+      "topic": "",
+      "message": ""
+    }
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "お名前",
+      "type": "text",
+      "required": true,
+      "placeholder": "山田 花子"
+    },
+    {
+      "key": "tel",
+      "label": "電話番号",
+      "type": "tel",
+      "required": true,
+      "placeholder": "000-1234-5678"
+    },
+    {
+      "key": "email",
+      "label": "メールアドレス",
+      "type": "email",
+      "required": true,
+      "placeholder": "abc@mail.com"
+    },
+    {
+      "key": "topic",
+      "label": "お問い合わせ項目",
+      "type": "radio",
+      "required": true,
+      "options": [
+        "相談したい",
+        "訪問看護をお願いしたい",
+        "その他（内容を次の欄にご記入ください）"
+      ]
+    },
+    {
+      "key": "message",
+      "label": "その他お問い合わせ内容",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "その他ご相談やご質問をこちらへご入力ください"
+    }
+  ],
+  "consent": "に同意して",
+  "submit": "問い合わせる"
+}

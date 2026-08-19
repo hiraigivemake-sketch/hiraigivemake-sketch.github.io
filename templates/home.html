@@ -1,0 +1,125 @@
+{{> head }}
+
+<section class="hero">
+  <div class="hero__grid">
+    <div>
+      <h1 class="hero__title">{{{ page.hero.title_html }}}</h1>
+      <div class="hero__actions">
+        <a class="btn btn--square" href="/contact/">{{ page.hero.button_primary }}</a>
+        <a class="btn btn--square btn--fill" href="/entry/">{{ page.hero.button_secondary }}</a>
+      </div>
+      <img class="hero__illust" src="{{ page.hero.illustration }}" alt="" width="420" height="134">
+    </div>
+    <div class="hero__photo">
+      <img src="{{ page.hero.photo }}" alt="{{ page.hero.photo_alt }}" width="960" height="720" fetchpriority="high">
+    </div>
+  </div>
+
+  {{# page.notice }}
+  <div class="container">
+    <a class="notice" href="{{ page.notice.url }}">{{{ page.notice.text_html }}}</a>
+  </div>
+  {{/ page.notice }}
+</section>
+
+<!-- サービス内容 -->
+<section class="section">
+  <div class="container">
+    <div class="feature">
+      <div class="feature__body">
+        <div class="heading">
+          <span class="heading__jp">{{ page.service.label }}</span>
+          <span class="heading__en">{{ page.service.title_en }}</span>
+        </div>
+        <p class="lead">{{ page.service.text }}</p>
+        <a class="btn" href="/service/">詳しく見る {{> arrow }}</a>
+      </div>
+      <div class="feature__media">
+        <img src="{{ page.service.image }}" alt="" loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- スタッフ紹介 -->
+<section class="section section--bg section--rounded">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.staff.label }}</span>
+      <span class="heading__en">{{ page.staff.title_en }}</span>
+    </div>
+    <p class="lead">{{ page.staff.text }}</p>
+    <div class="staff-strip">
+      {{# page.staff.photos }}<img src="{{ . }}" alt="" loading="lazy">{{/ page.staff.photos }}
+    </div>
+    <div class="center-action">
+      <a class="btn" href="/staff/">詳しく見る {{> arrow }}</a>
+    </div>
+  </div>
+</section>
+
+<!-- 採用情報 -->
+<section class="section">
+  <div class="container">
+    <div class="panel">
+      <div class="heading heading--center">
+        <span class="heading__jp">{{ page.recruit.label }}</span>
+        <span class="heading__en">{{ page.recruit.title_en }}</span>
+      </div>
+      <div class="feature" style="margin-top:40px">
+        <div class="feature__body">
+          <p class="h3" style="color:var(--c-orange)">{{{ page.recruit.subtitle_html }}}</p>
+          <p class="lead">{{ page.recruit.text }}</p>
+          <a class="btn" href="/recruit/">詳しく見る {{> arrow }}</a>
+        </div>
+        <div class="feature__media">
+          <img src="{{ page.recruit.image }}" alt="" loading="lazy" style="border-radius:12px">
+        </div>
+      </div>
+      <img src="{{ page.recruit.illustration }}" alt="" loading="lazy" style="display:block;width:100%;max-width:600px;margin:40px auto 0">
+    </div>
+  </div>
+</section>
+
+<!-- 会社概要 -->
+<section class="section">
+  <div class="container">
+    <div class="feature feature--reverse">
+      <div class="feature__body">
+        <div class="heading">
+          <span class="heading__jp">{{ page.company.label }}</span>
+          <span class="heading__en">{{ page.company.title_en }}</span>
+        </div>
+        <p class="lead">{{ page.company.text }}</p>
+        <a class="btn" href="/aboutus/">詳しく見る {{> arrow }}</a>
+      </div>
+      <div class="feature__media">
+        <img src="{{ page.company.image }}" alt="" loading="lazy">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ブログ -->
+<section class="section section--bg">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">ブログ</span>
+      <span class="heading__en">Blog</span>
+    </div>
+    <div class="card-grid">
+      {{# blog_latest }}
+      <a class="post-card" href="{{ url }}">
+        <img class="post-card__thumb" src="{{ thumbnail }}" alt="" loading="lazy">
+        <span class="post-card__date">{{ date_display }}</span>
+        <span class="post-card__title">{{ title }}</span>
+      </a>
+      {{/ blog_latest }}
+    </div>
+    <div class="center-action">
+      <a class="btn" href="/blog/">一覧を見る {{> arrow }}</a>
+    </div>
+  </div>
+</section>
+
+{{> foot }}

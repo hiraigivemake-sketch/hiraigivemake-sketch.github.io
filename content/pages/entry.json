@@ -1,0 +1,98 @@
+{
+  "_comment": "見学申込＆応募ページです。入力項目の追加・削除や、フォームの送信先設定ができます。",
+  "template": "contact",
+  "title": "見学申込＆応募フォーム",
+  "label": "見学申込＆応募フォーム",
+  "title_en": "Entry",
+  "seo_title": "見学申し込み＆応募フォーム｜クリケア訪問看護ステーション（奈良県香芝市）",
+  "description": "クリケア訪問看護ステーションの見学申込・採用応募はこちらのフォームからお願いいたします。",
+  "hide_cta": true,
+  "head_actions": [
+    {
+      "label": "LINEからもご応募いただけます→",
+      "url": "https://lin.ee/mijVYce"
+    }
+  ],
+  "google_form": {
+    "mode": "native",
+    "action": "",
+    "embed_url": "",
+    "entries": {
+      "name": "",
+      "email": "",
+      "job": "",
+      "purpose": "",
+      "office": "",
+      "tel": "",
+      "message": ""
+    }
+  },
+  "fields": [
+    {
+      "key": "name",
+      "label": "お名前",
+      "type": "text",
+      "required": true,
+      "placeholder": ""
+    },
+    {
+      "key": "email",
+      "label": "E-mail",
+      "type": "email",
+      "required": true,
+      "placeholder": ""
+    },
+    {
+      "key": "job",
+      "label": "希望求人",
+      "type": "select",
+      "required": true,
+      "options": [
+        "[正社員] 看護師",
+        "[パート]看護師",
+        "[正社員] 理学療法士",
+        "[正社員]医療事務",
+        "[正社員]主任ケアマネジャー",
+        "※選考希望以外の方"
+      ]
+    },
+    {
+      "key": "purpose",
+      "label": "希望内容",
+      "type": "select",
+      "required": true,
+      "options": [
+        "面接希望",
+        "見学・面談のみ希望",
+        "見学面談＋同行訪問希望",
+        "その他ご相談やご質問"
+      ]
+    },
+    {
+      "key": "office",
+      "label": "希望事業所",
+      "type": "select",
+      "required": true,
+      "options": [
+        "クリケア訪問看護ステーション",
+        "クリケア訪問看護ステーション斑鳩事業所（仮称）"
+      ]
+    },
+    {
+      "key": "tel",
+      "label": "電話番号",
+      "type": "tel",
+      "required": false,
+      "note": "※ハイフン(-)不要"
+    },
+    {
+      "key": "message",
+      "label": "その他ご相談やご質問",
+      "type": "textarea",
+      "required": false,
+      "placeholder": ""
+    }
+  ],
+  "consent": "に同意して",
+  "submit": "見学・面接を申し込む"
+}

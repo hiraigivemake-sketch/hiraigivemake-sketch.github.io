@@ -1,0 +1,10 @@
+{
+  "_comment": "運営規定ページです。PDFを差し替えるときは、画像ライブラリではなく assets フォルダに置いてリンクを変更してください。",
+  "template": "page",
+  "title": "運営規定",
+  "label": "運営規定",
+  "title_en": "Operating Regulations",
+  "seo_title": "運営規定｜クリケア訪問看護ステーション（奈良県香芝市）",
+  "description": "クリケア訪問看護ステーションの運営規定をPDFで公開しています。",
+  "body_md": "[クリケア運営規定（PDF）](/assets/kuricare-operating-regulations.pdf)"
+}

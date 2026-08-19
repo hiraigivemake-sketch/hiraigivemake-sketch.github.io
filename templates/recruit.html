@@ -1,0 +1,220 @@
+{{> head }}
+{{> page-head }}
+
+<section class="section section--tight">
+  <div class="container">
+    <div class="notice" style="display:block">
+      <span style="display:block;font-size:16px;font-weight:500">{{ page.campaign.lead }}</span>
+      {{ page.campaign.text }}
+      <span style="font-family:var(--f-en);font-size:48px">{{ page.campaign.amount }}</span>{{ page.campaign.unit }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.features.label }}</span>
+      <span class="heading__en">{{ page.features.title_en }}</span>
+    </div>
+    <div class="card-grid card-grid--3">
+      {{# page.features.items }}
+      <div class="panel"><h3>{{ title }}</h3><p style="margin-top:16px">{{ text }}</p></div>
+      {{/ page.features.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.awesome.label }}</span>
+      <span class="heading__en">{{ page.awesome.title_en }}</span>
+    </div>
+    <div class="card-grid card-grid--3">
+      {{# page.awesome.items }}
+      <div class="panel panel--bg"><h3>{{ title }}</h3><p style="margin-top:16px">{{ text }}</p></div>
+      {{/ page.awesome.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.inside_view.label }}</span>
+      <span class="heading__en">{{ page.inside_view.title_en }}</span>
+    </div>
+    <div style="display:grid;gap:32px;margin-top:48px">
+      {{# page.inside_view.items }}
+      <div class="panel">
+        <h3 style="color:var(--c-orange)">{{ question }}</h3>
+        <p style="margin-top:16px;font-weight:700">{{ summary }}</p>
+        <div style="margin-top:12px">{{{ text_html }}}</div>
+        <details class="voices">
+          <summary>リアルな声を見てみる</summary>
+          <ul>{{# voices }}<li>{{ . }}</li>{{/ voices }}</ul>
+        </details>
+      </div>
+      {{/ page.inside_view.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.access.label }}</span>
+      <span class="heading__en">{{ page.access.title_en }}</span>
+    </div>
+    <div class="feature" style="margin-top:48px">
+      <div class="feature__media"><img src="{{ page.access.image }}" alt="アクセスマップ" loading="lazy" style="border-radius:16px"></div>
+      <div class="feature__body">
+        <ul style="display:grid;gap:8px">{{# page.access.routes }}<li>{{ . }}</li>{{/ page.access.routes }}</ul>
+        <a class="btn" href="{{ site.social.map }}" target="_blank" rel="noopener">{{ page.access.map_button }} {{> arrow }}</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.job_description.label }}</span>
+      <span class="heading__en">{{ page.job_description.title_en }}</span>
+    </div>
+    <div class="panel" style="width:100%;max-width:860px;margin:40px auto 0">
+      <h3>{{ page.job_description.title }}</h3>
+      <p style="margin-top:16px">{{ page.job_description.text }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container" style="width:100%;max-width:860px">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.daily_schedule.label }}</span>
+      <span class="heading__en">{{ page.daily_schedule.title_en }}</span>
+    </div>
+    <div class="timeline">
+      {{# page.daily_schedule.items }}
+      <div class="timeline__item">
+        <div class="timeline__time">{{ time }}</div>
+        <div class="timeline__title">{{ title }}</div>
+        <p class="timeline__text">{{ text }}</p>
+      </div>
+      {{/ page.daily_schedule.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.benefits.label }}</span>
+      <span class="heading__en">{{ page.benefits.title_en }}</span>
+    </div>
+    <div class="card-grid card-grid--3">
+      {{# page.benefits.items }}
+      <div class="panel"><h3>{{ title }}</h3><p style="margin-top:16px">{{ text }}</p></div>
+      {{/ page.benefits.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.data.label }}</span>
+      <span class="heading__en">{{ page.data.title_en }}</span>
+    </div>
+    <div class="stat-grid">
+      {{# page.data.items }}
+      <div class="stat">
+        <div class="stat__label">{{ label }}</div>
+        <div class="stat__value">{{ value }}<span class="stat__unit">{{ unit }}</span></div>
+        {{# note }}<div class="stat__note">{{ note }}</div>{{/ note }}
+      </div>
+      {{/ page.data.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.message.label }}</span>
+      <span class="heading__en">{{ page.message.title_en }}</span>
+    </div>
+    <div class="card-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));width:100%;max-width:800px;margin-inline:auto">
+      {{# page.message.people }}
+      <figure>
+        <img src="{{ photo }}" alt="{{ name }}" loading="lazy" style="width:100%;border-radius:16px">
+        <figcaption style="margin-top:12px;text-align:center;font-weight:700">{{ role }}　{{ name }}</figcaption>
+      </figure>
+      {{/ page.message.people }}
+    </div>
+    <div class="panel" style="width:100%;max-width:860px;margin:40px auto 0">{{{ page.message.text_html }}}</div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.survey.label }}</span>
+      <span class="heading__en">{{ page.survey.title_en }}</span>
+    </div>
+    <p class="lead">{{ page.survey.catch }}</p>
+    <img src="{{ page.survey.image }}" alt="" loading="lazy" style="display:block;width:100%;max-width:720px;margin:32px auto 0;border-radius:16px">
+    <div class="card-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:48px">
+      {{# page.survey.groups }}
+      <div class="panel panel--bg">
+        <h3>{{ heading }}</h3>
+        <ul class="prose" style="margin-top:16px">{{# items }}<li>{{ . }}</li>{{/ items }}</ul>
+      </div>
+      {{/ page.survey.groups }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container" style="width:100%;max-width:900px">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.faq.label }}</span>
+      <span class="heading__en">{{ page.faq.title_en }}</span>
+    </div>
+    <div class="faq">
+      {{# page.faq.items }}
+      <details>
+        <summary>{{ q }}</summary>
+        <div class="faq__answer"><div>{{{ a_html }}}</div></div>
+      </details>
+      {{/ page.faq.items }}
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight" id="bosyuu">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.jobs.label }}</span>
+      <span class="heading__en">{{ page.jobs.title_en }}</span>
+    </div>
+    <div style="margin-top:48px">
+      {{# recruit }}
+      <a class="job-card" href="{{ url }}">
+        <div>
+          <div class="job-card__title">{{ title }}</div>
+          <div class="job-card__salary">{{ salary_summary }}</div>
+          <div class="tag-list">
+            {{# employment }}<span class="tag">{{ employment }}</span>{{/ employment }}
+            {{# office }}<span class="tag">{{ office }}</span>{{/ office }}
+          </div>
+        </div>
+        <span class="btn">詳しく見る {{> arrow }}</span>
+      </a>
+      {{/ recruit }}
+    </div>
+  </div>
+</section>
+{{> foot }}

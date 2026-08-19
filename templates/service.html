@@ -1,0 +1,40 @@
+{{> head }}
+{{> page-head }}
+
+<section class="section section--tight">
+  <div class="container">
+    {{# page.features }}
+    <article class="media-card {{# reverse }}media-card--reverse{{/ reverse }}">
+      <div class="media-card__photo"><img src="{{ photo }}" alt="" loading="lazy"></div>
+      <h2 class="media-card__title">{{{ title_html }}}</h2>
+      <div class="media-card__text"><p>{{ text }}</p></div>
+    </article>
+    {{/ page.features }}
+  </div>
+</section>
+
+<section class="section section--bg section--tight">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.areas.label }}</span>
+      <span class="heading__en">{{ page.areas.title_en }}</span>
+    </div>
+    <p class="lead">{{ page.areas.text }}</p>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <h2 class="heading__en" style="font-size:32px;text-align:center">{{ page.tokutei.title }}</h2>
+    <div class="prose" style="width:100%;max-width:860px;margin:48px auto 0">
+      {{# page.tokutei.blocks }}
+      <h2>{{ heading }}</h2>
+      {{{ body_html }}}
+      {{/ page.tokutei.blocks }}
+    </div>
+    <div class="article__gallery" style="width:100%;max-width:860px;margin-inline:auto">
+      {{# page.tokutei.images }}<img src="{{ . }}" alt="" loading="lazy">{{/ page.tokutei.images }}
+    </div>
+  </div>
+</section>
+{{> foot }}

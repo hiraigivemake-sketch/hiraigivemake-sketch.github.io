@@ -1,0 +1,11 @@
+<section class="page-head">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">{{ page.label }}</span>
+      <span class="heading__en">{{ page.title_en }}</span>
+    </div>
+    {{# page.head_actions }}{{# _first }}<div class="page-head__actions">{{/ _first }}{{/ page.head_actions }}
+    {{# page.head_actions }}<a class="btn btn--square {{# fill }}btn--fill{{/ fill }}" href="{{ url }}">{{ label }}</a>{{/ page.head_actions }}
+    {{# page.head_actions }}{{# _last }}</div>{{/ _last }}{{/ page.head_actions }}
+  </div>
+</section>

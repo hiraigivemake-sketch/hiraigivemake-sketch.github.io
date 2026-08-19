@@ -1,0 +1,29 @@
+<header class="header">
+  <div class="header__inner">
+    <a class="header__logo" href="/" aria-label="{{ site.company.office }} トップページ">
+      <img src="{{ site.logo }}" alt="{{ site.company.office }}" width="160" height="46">
+    </a>
+
+    <nav class="header__nav" aria-label="メインメニュー">
+      {{# site.nav }}<a class="header__link" href="{{ url }}">{{ label }}</a>{{/ site.nav }}
+      <a class="header__icon" href="{{ site.social.instagram }}" target="_blank" rel="noopener" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none"/></svg>
+      </a>
+    </nav>
+
+    <div class="header__actions">
+      <a class="header__btn" href="/contact/">お問い合わせ</a>
+      <a class="header__btn header__btn--fill" href="/entry/">見学/応募</a>
+      <button class="header__menu-btn" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="mobile-menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<nav class="mobile-menu" id="mobile-menu" aria-label="モバイルメニュー">
+  {{# site.nav }}<a href="{{ url }}">{{ label }}</a>{{/ site.nav }}
+  {{# site.footer_nav }}<a href="{{ url }}">{{ label }}</a>{{/ site.footer_nav }}
+  <a class="btn" href="/contact/">お問い合わせ</a>
+  <a class="btn btn--fill" href="/entry/">見学/応募</a>
+</nav>

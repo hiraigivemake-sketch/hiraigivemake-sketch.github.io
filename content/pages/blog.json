@@ -1,0 +1,21 @@
+{
+  "_comment": "ブログ一覧ページの見出しです。記事そのものは左メニューの「ブログ」から編集します。",
+  "template": "blog",
+  "title": "ブログ一覧",
+  "label": "ブログ一覧",
+  "title_en": "Blog List",
+  "seo_title": "ブログ｜クリケア訪問看護ステーション（奈良県香芝市）",
+  "description": "クリケア訪問看護ステーションの日々の活動や、地域での取り組み、研修・学会参加のようすなどをお届けします。",
+  "head_actions": [
+    {
+      "label": "お問い合わせ→",
+      "url": "/contact/"
+    },
+    {
+      "label": "一緒に働く→",
+      "url": "/entry/",
+      "fill": true
+    }
+  ],
+  "per_page": 12
+}

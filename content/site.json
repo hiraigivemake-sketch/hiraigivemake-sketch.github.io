@@ -1,0 +1,77 @@
+{
+  "_comment": "全ページ共通の設定です。ロゴ・会社情報・電話番号・SNSリンク・メニュー・ページ下部の案内欄をまとめて変更できます。",
+  "name": "クリケア訪問看護ステーション",
+  "base_url": "https://giveandmake-c.com",
+  "logo": "/assets/images/s-941x410_v-fs_webp_f9323399-499b-41e3-b522-0692f403c2ad_small.webp",
+  "logo_footer": "/assets/images/s-600x219_3394d76f-e902-4200-baf0-bb702a25d1e6.webp",
+  "favicon": "/assets/images/favicon.png",
+  "og_image": "/assets/images/og-image.jpg",
+  "blog_home_count": 4,
+  "company": {
+    "legal_name": "株式会社GIVE&MAKE",
+    "office": "クリケア訪問看護ステーション",
+    "industry": "訪問看護",
+    "postal": "639-0231",
+    "address": "奈良県香芝市下田西2-278-7 香芝ビル2F",
+    "tel": "0745-76-5825",
+    "fax": "0745-76-5826",
+    "hours": "9:00～18:00",
+    "area": "香芝市、大和高田市、葛城市、王寺町、三郷町、広陵町、上牧町"
+  },
+  "social": {
+    "instagram": "https://www.instagram.com/give.and.make/",
+    "x": "https://x.com/GiveGivemake1",
+    "line": "https://lin.ee/mijVYce",
+    "line_qr": "https://qr-official.line.me/gs/M_915mekxz_GW.png?oat_content=qr",
+    "map": "https://maps.app.goo.gl/HMUxAUNwr6uUA2e68"
+  },
+  "nav": [
+    {
+      "label": "サービス内容",
+      "url": "/service/"
+    },
+    {
+      "label": "会社概要",
+      "url": "/aboutus/"
+    },
+    {
+      "label": "スタッフ紹介",
+      "url": "/staff/"
+    },
+    {
+      "label": "ブログ",
+      "url": "/blog/"
+    },
+    {
+      "label": "採用情報",
+      "url": "/recruit/"
+    }
+  ],
+  "footer_nav": [
+    {
+      "label": "運営規定",
+      "url": "/operating-regulations/"
+    },
+    {
+      "label": "プライバシーポリシー",
+      "url": "/privacypolicy/"
+    },
+    {
+      "label": "サイトマップ",
+      "url": "/sitemap/"
+    }
+  ],
+  "cta": {
+    "contact": {
+      "title": "お問い合わせ",
+      "text": "訪問看護のご依頼については、以下フォームよりご情報をご入力のうえ、ご連絡いただけますと幸いです。",
+      "button": "相談する→"
+    },
+    "entry": {
+      "title": "スタッフ募集中",
+      "text": "弊社で働くことに興味をお持ちいただけた方は、以下のボタンより、必要情報をご入力のうえ、お気軽にご応募ください。",
+      "button": "見学申込or応募する→",
+      "line_button": "友だち追加"
+    }
+  }
+}

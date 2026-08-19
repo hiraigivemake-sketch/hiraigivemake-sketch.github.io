@@ -1,0 +1,248 @@
+<title>GitHub公開の手順</title>
+<style>
+:root{
+  --ground:#FBF7EF; --panel:#FFFFFF; --ink:#33302C; --ink-soft:#6E5A47;
+  --accent:#ED7300; --accent-soft:#FCEEDD; --rule:#E7DCCA;
+  --shadow:0 1px 2px rgba(105,85,68,.06),0 8px 24px rgba(105,85,68,.07);
+  --warn:#B3261E; --warn-soft:#FBEDEC;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#211D19; --panel:#2B2621; --ink:#F0E9DF; --ink-soft:#B8A794;
+    --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.28);
+    --warn:#FF8A80; --warn-soft:#3A211E;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#211D19; --panel:#2B2621; --ink:#F0E9DF; --ink-soft:#B8A794;
+  --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.28);
+  --warn:#FF8A80; --warn-soft:#3A211E;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.9;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding:56px 22px 96px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);margin:0 0 14px}
+h1{margin:0;font-size:clamp(27px,6vw,38px);font-weight:800;line-height:1.35;letter-spacing:-.01em;text-wrap:balance}
+.sub{margin:18px 0 0;color:var(--ink-soft);font-size:15px}
+.callout{margin:32px 0 0;padding:20px 22px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--rule)}
+.callout p{margin:0}
+.callout p+p{margin-top:10px}
+.callout strong{color:var(--accent)}
+.warn{margin:20px 0 0;padding:18px 20px;border-radius:12px;background:var(--warn-soft);border:1px solid var(--warn)}
+.warn p{margin:0;font-size:15px}
+.warn b{color:var(--warn)}
+h2{margin:58px 0 0;font-size:13px;font-weight:700;letter-spacing:.18em;color:var(--ink-soft);
+   padding-bottom:12px;border-bottom:1px solid var(--rule)}
+.step{display:grid;grid-template-columns:44px 1fr;gap:0 18px;margin-top:32px}
+.step__no{grid-row:1/span 3;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--accent);color:#fff;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.step__title{margin:6px 0 0;font-size:19px;font-weight:700;line-height:1.55}
+.step__body{margin:10px 0 0}
+.step__body p{margin:0 0 12px}
+.step__body p:last-child{margin-bottom:0}
+.step__body ol,.step__body ul{margin:0 0 12px;padding-left:1.4em}
+.step__body li{margin-bottom:6px}
+.ui{display:inline-block;padding:2px 10px;border-radius:7px;background:var(--panel);
+  border:1px solid var(--rule);font-weight:700;font-size:14px;white-space:nowrap}
+.file{display:inline-block;padding:2px 10px;border-radius:7px;background:var(--panel);
+  border:1px solid var(--rule);font-weight:700;font-size:14px;white-space:nowrap}
+.key{color:var(--ink-soft);font-size:14px}
+code{background:var(--panel);border:1px solid var(--rule);padding:1px 7px;border-radius:6px;font-size:13.5px;word-break:break-all}
+.card{margin-top:16px;padding:20px 22px;border-radius:14px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.card h3{margin:0 0 8px;font-size:16px;font-weight:700}
+.card p{margin:0;color:var(--ink-soft);font-size:15px}
+.card p+p{margin-top:8px}
+dl.faq{margin:16px 0 0}
+dl.faq dt{margin-top:20px;font-weight:700}
+dl.faq dt::before{content:"？";color:var(--accent);font-weight:800;margin-right:8px}
+dl.faq dd{margin:6px 0 0 24px;color:var(--ink-soft)}
+table{width:100%;border-collapse:collapse;margin-top:16px;font-size:15px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{color:var(--ink-soft);font-size:13px;font-weight:700;white-space:nowrap}
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--rule);color:var(--ink-soft);font-size:13px}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">クリケア訪問看護ステーション</p>
+<h1>GitHubで公開する手順</h1>
+<p class="sub">一度だけ設定すれば、あとは <b>編集して「送る」を押すだけ</b> でホームページが自動更新されるようになります。所要時間は30分ほど。難しい入力はありません。</p>
+
+<div class="callout">
+  <p><strong>できるようになること</strong></p>
+  <p>・編集内容が自動でホームページに反映される（1〜2分）<br>
+  ・いつ誰が何を変えたか、すべて記録に残る<br>
+  ・まちがえても、以前の状態にいつでも戻せる<br>
+  ・複数のパソコンから編集できる（同時編集も安全）</p>
+</div>
+
+<div class="warn">
+  <p><b>安心してください。</b>この作業をしても、いま公開中のホームページ（STUDIO版）には一切影響しません。新しいほうが問題なく動くのを確認してから、あとで切り替えます。</p>
+</div>
+
+<h2>ステップ1：準備（初回だけ）</h2>
+
+<div class="step">
+  <div class="step__no">1</div>
+  <h3 class="step__title">GitHubのアカウントを作る</h3>
+  <div class="step__body">
+    <p><a href="https://github.com/signup" target="_blank" rel="noopener">github.com/signup</a> を開き、メールアドレス・パスワード・ユーザー名を登録します（無料）。</p>
+    <p>ユーザー名は後で<b>ホームページのアドレスに使われます</b>。<code>kuricare</code> や <code>giveandmake</code> のような、事業所に関係する短い英数字にしておくと分かりやすいです。</p>
+    <p class="key">※ 登録したメールアドレスに確認メールが届くので、リンクを押して認証してください。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">2</div>
+  <h3 class="step__title">GitHub Desktop をインストールする</h3>
+  <div class="step__body">
+    <p><a href="https://desktop.github.com" target="_blank" rel="noopener">desktop.github.com</a> から無料アプリをダウンロードして、アプリケーションフォルダに入れます。</p>
+    <p>起動したら <span class="ui">Sign in to GitHub.com</span> を押し、ステップ1で作ったアカウントでログインします。ブラウザが開くので <span class="ui">Authorize</span> を押してください。</p>
+    <p class="key">※ 名前とメールアドレスを聞かれたら、そのまま <span class="ui">Finish</span> で進んで大丈夫です。</p>
+  </div>
+</div>
+
+<h2>ステップ2：フォルダをGitHubに登録する</h2>
+
+<div class="step">
+  <div class="step__no">3</div>
+  <h3 class="step__title">kuricare-site を GitHub Desktop に読み込む</h3>
+  <div class="step__body">
+    <p>GitHub Desktop のメニューから <span class="ui">File</span> → <span class="ui">Add Local Repository…</span> を選び、デスクトップの <span class="file">kuricare-site</span> フォルダを選びます。</p>
+    <p>左側にファイルの一覧がずらっと表示されれば成功です。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">4</div>
+  <h3 class="step__title">最初の記録（コミット）をする</h3>
+  <div class="step__body">
+    <p>画面左下の入力欄に <code>最初の登録</code> と入力し、青い <span class="ui">Commit to main</span> ボタンを押します。</p>
+    <p class="key">※ 「コミット」は「ここまでの状態を記録する」という意味です。写真を撮って残すようなイメージです。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">5</div>
+  <h3 class="step__title">GitHubに公開（アップロード）する</h3>
+  <div class="step__body">
+    <p>画面上部の <span class="ui">Publish repository</span> を押します。設定画面が出るので、次のようにします。</p>
+    <table>
+      <tr><th>Name</th><td><code>ユーザー名.github.io</code><br>
+        <span class="key">ステップ1で決めたユーザー名を使います。例：ユーザー名が <code>kuricare</code> なら <code>kuricare.github.io</code></span></td></tr>
+      <tr><th>Description</th><td>空欄のままでかまいません</td></tr>
+      <tr><th>Keep this code private</th><td><b>チェックを外す</b>（公開にする）</td></tr>
+    </table>
+    <p style="margin-top:14px">最後に <span class="ui">Publish repository</span> を押します。40MBほどあるので、1〜3分かかります。</p>
+    <div class="warn" style="margin-top:16px">
+      <p><b>名前は必ず「ユーザー名.github.io」にしてください。</b>別の名前にすると、ホームページのアドレスが1段深くなり、デザインが崩れてしまいます。<br>
+      また、無料でホームページを公開するには <b>公開（Public）</b> の設定が必要です。載せているのは元々ホームページで公開している内容なので、問題ありません。</p>
+    </div>
+  </div>
+</div>
+
+<h2>ステップ3：自動公開をONにする</h2>
+
+<div class="step">
+  <div class="step__no">6</div>
+  <h3 class="step__title">GitHubのサイトで設定を1か所変える</h3>
+  <div class="step__body">
+    <p>GitHub Desktop の <span class="ui">View on GitHub</span> を押すと、ブラウザでリポジトリが開きます。</p>
+    <ol>
+      <li>上のタブから <span class="ui">Settings</span> を選ぶ</li>
+      <li>左のメニューから <span class="ui">Pages</span> を選ぶ</li>
+      <li><b>Build and deployment</b> の <b>Source</b> を <span class="ui">Deploy from a branch</span> から <span class="ui">GitHub Actions</span> に変える</li>
+    </ol>
+    <p>変えた瞬間に保存されます。ボタンを押す必要はありません。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">7</div>
+  <h3 class="step__title">公開されるのを待つ</h3>
+  <div class="step__body">
+    <p>上のタブの <span class="ui">Actions</span> を開くと「サイトを公開する」という作業が動いています。</p>
+    <p>黄色い丸●が回っている間は作業中、<b>緑のチェック✓</b>になれば完了です（2〜3分）。</p>
+    <p>完了したら <code>https://ユーザー名.github.io/</code> を開いてください。ホームページが表示されます。</p>
+    <p class="key">※ 赤い×になったときは、そのまま Claude Code に「Actionsが赤くなった」と伝えてください。原因を調べます。</p>
+  </div>
+</div>
+
+<h2>これからの更新のしかた</h2>
+
+<div class="callout">
+  <p><strong>いつもの流れ</strong></p>
+  <p>① <span class="file">① 編集をはじめる</span> で編集する<br>
+  → ② <span class="file">⑥ 変更をGitHubに送る</span> をダブルクリック<br>
+  → ③ 1〜2分でホームページが自動更新される</p>
+</div>
+
+<div class="card">
+  <h3><span class="file">⑥ 変更をGitHubに送る</span> が行うこと</h3>
+  <p>送る前に自動で点検し、リンク切れや画像の抜けがあれば送信を止めます。問題がなければ、日付入りで記録を残してGitHubへ送ります。</p>
+  <p>GitHub Desktop の画面から <span class="ui">Commit to main</span> → <span class="ui">Push origin</span> を押しても同じことができます。変更内容を目で確かめたいときはこちらが便利です。</p>
+</div>
+
+<div class="card">
+  <h3>まちがえたときに戻す</h3>
+  <p>GitHub Desktop の <span class="ui">History</span> タブに、これまでの記録がすべて並んでいます。戻したい時点を右クリックして <span class="ui">Revert changes in commit</span> を選べば、その変更だけを取り消せます。</p>
+</div>
+
+<div class="card">
+  <h3>他のパソコンから編集する</h3>
+  <p>そのパソコンにも GitHub Desktop を入れてログインし、<span class="ui">File</span> → <span class="ui">Clone repository</span> から選ぶだけです。編集する前に <span class="ui">Fetch origin</span> を押して最新にしてから始めてください。</p>
+</div>
+
+<h2>最後の仕上げ：独自ドメインへの切り替え</h2>
+
+<div class="callout">
+  <p>ここまでで <code>ユーザー名.github.io</code> という仮のアドレスで公開されています。<br>
+  <strong>しばらく（1〜2週間）使ってみて問題がなければ</strong>、本来のアドレス <code>giveandmake-c.com</code> に切り替えます。</p>
+</div>
+
+<div class="card">
+  <h3>切り替えの流れ（このときは相談してください）</h3>
+  <p>1. GitHub側で独自ドメインを登録する<br>
+  2. ドメインを管理している会社の画面で、向き先をGitHubに変更する<br>
+  3. 反映を確認してから、STUDIOを解約する</p>
+  <p>2番はドメインを買った会社（お名前.com、ムームードメインなど）の管理画面での作業になります。どこで取得したかが分かれば、Claude Codeが手順をご案内します。</p>
+</div>
+
+<div class="warn">
+  <p><b>切り替えるまで、STUDIOは解約しないでください。</b>切り替え後に問題が起きても、すぐ元に戻せるようにしておくためです。</p>
+</div>
+
+<h2>困ったとき</h2>
+
+<dl class="faq">
+  <dt>Publish repository が押せない／エラーが出る</dt>
+  <dd>先に「Commit to main」を押しているか確認してください。1回も記録していないと公開できません。</dd>
+
+  <dt>アップロードがすごく遅い</dt>
+  <dd>写真が480枚ほどあるため、初回だけ数分かかります。2回目からは変更した分だけなので数秒です。</dd>
+
+  <dt>Settings に Pages が見つからない</dt>
+  <dd>リポジトリが非公開（Private）になっている可能性があります。Settings のいちばん下 <span class="ui">Change repository visibility</span> から公開（Public）に変更してください。</dd>
+
+  <dt>Actions が赤い×になった</dt>
+  <dd>×を押すと、どこで止まったかが表示されます。その画面をスクリーンショットするか、赤い文字をコピーして Claude Code に伝えてください。</dd>
+
+  <dt>ページは出るが、文字だけで見た目が崩れている</dt>
+  <dd>リポジトリ名が <code>ユーザー名.github.io</code> になっていない可能性が高いです。Settings の <span class="ui">Repository name</span> から名前を変更してください。</dd>
+
+  <dt>GitHubは有料ですか</dt>
+  <dd>この使い方であれば無料です。公開リポジトリのホームページ公開機能（GitHub Pages）と自動更新（Actions）は、どちらも無料枠で足ります。</dd>
+</dl>
+
+<footer>
+  クリケア訪問看護ステーション ホームページ GitHub公開手順<br>
+  この手順で使うファイル（自動公開の設定など）は、すでに <code>kuricare-site</code> フォルダに入っています。
+</footer>
+
+</div>

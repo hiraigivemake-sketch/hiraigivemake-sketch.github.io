@@ -1,0 +1,14 @@
+{{> head }}
+{{> page-head }}
+<section class="section section--tight">
+  <div class="container">
+    {{# page.members }}
+    <article class="media-card {{# _index }}{{/ _index }}">
+      <div class="media-card__photo"><img src="{{ photo }}" alt="{{ name }}" loading="lazy"></div>
+      <h2 class="media-card__title">{{ name }}</h2>
+      <div class="media-card__text">{{{ text_html }}}</div>
+    </article>
+    {{/ page.members }}
+  </div>
+</section>
+{{> foot }}

@@ -1,0 +1,24 @@
+<footer class="footer">
+  <div class="container">
+    <div class="footer__top">
+      <div class="footer__brand">
+        <a href="/" aria-label="{{ site.company.office }} トップページ">
+          <img src="{{ site.logo_footer }}" alt="{{ site.company.office }}" width="180" height="66">
+        </a>
+        <div class="footer__social">
+          <a href="{{ site.social.instagram }}" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none"/></svg>
+          </a>
+          <a href="{{ site.social.x }}" target="_blank" rel="noopener" aria-label="X">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.3 3h3.3l-7.2 8.2L21.8 21h-6.6l-4.4-5.7L5.7 21H2.4l7.7-8.8L2.2 3h6.8l4 5.3L17.3 3zm-1.2 16h1.8L7.9 4.9H6L16.1 19z"/></svg>
+          </a>
+        </div>
+      </div>
+      <nav class="footer__nav" aria-label="フッターメニュー">
+        <div>{{# site.nav }}<a href="{{ url }}">{{ label }}</a>{{/ site.nav }}<a href="/contact/">お問い合わせ</a><a href="/entry/">見学申込&amp;応募</a></div>
+        <div>{{# site.footer_nav }}<a href="{{ url }}">{{ label }}</a>{{/ site.footer_nav }}</div>
+      </nav>
+    </div>
+    <p class="footer__copy">Copyright &copy;{{ site.company.legal_name }}. All Rights Reserved.</p>
+  </div>
+</footer>

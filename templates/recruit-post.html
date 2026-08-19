@@ -1,0 +1,29 @@
+{{> head }}
+<section class="page-head">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">募集要項</span>
+      <span class="heading__en">Recruit</span>
+    </div>
+    <h1 class="h3" style="margin-top:24px">{{ post.title }}</h1>
+    <p class="lead" style="margin-top:8px">{{ post.salary_summary }}</p>
+    <div class="page-head__actions">
+      <a class="btn btn--square btn--fill" href="/entry/">見学・応募する→</a>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="container">
+    <article class="article">
+      <div class="tag-list" style="justify-content:center">
+        {{# post.employment }}<span class="tag">{{ post.employment }}</span>{{/ post.employment }}
+        {{# post.job_type }}<span class="tag">{{ post.job_type }}</span>{{/ post.job_type }}
+        {{# post.office }}<span class="tag">{{ post.office }}</span>{{/ post.office }}
+      </div>
+      <div class="article__body prose">{{{ post.body_html }}}</div>
+      <div class="center-action"><a class="btn btn--fill" href="/entry/">この求人に応募する {{> arrow }}</a></div>
+    </article>
+  </div>
+</section>
+{{> foot }}
