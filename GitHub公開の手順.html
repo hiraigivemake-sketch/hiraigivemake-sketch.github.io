@@ -290,8 +290,85 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
       <li>保存先を「デスクトップ」にして <span class="ui">Clone</span> を押す</li>
     </ol>
     <p>ダウンロードが終わると、1台目とまったく同じフォルダができます。<span class="file">① 編集をはじめる</span> などのボタンもそのまま入っています。</p>
-    <p class="key">※ Windows のパソコンなら、フォルダの中の <span class="file">Windows用</span> の中にある <span class="file">.bat</span> ファイルを使います。先に Microsoft Store で「Python 3」をインストールしておいてください。</p>
+    <div class="card" style="margin-top:16px">
+      <h3>Windows のパソコンの場合</h3>
+      <p>Macは <span class="file">① 編集をはじめる.command</span> をそのまま使いますが、Windowsではこの形式のファイルが動きません。かわりに <b>まったく同じ働きをするファイル</b> を <span class="file">Windows用</span> というフォルダに入れてあります。</p>
+      <p style="margin-top:10px">つまり、<b>Windowsの人は「Windows用」フォルダを開いて、その中の①〜⑥をダブルクリックする</b>だけです。使い方はMacと同じです。</p>
+      <p style="margin-top:10px"><b>ただし、はじめの1回だけ Python というソフトを入れる必要があります</b>（Macには最初から入っていますが、Windowsには入っていないため）。手順は下の章をご覧ください。</p>
+    </div>
   </div>
+</div>
+
+<h2>Windowsのパソコンで使う準備</h2>
+
+<div class="callout">
+  <p><strong>Macだけで使う場合は、この章は読み飛ばして大丈夫です。</strong><br>
+  Windowsのパソコンでも編集したいときだけ、はじめに1回だけ必要な作業です。5分ほどで終わります。</p>
+</div>
+
+<div class="card">
+  <h3>なぜ必要なの？</h3>
+  <p>このホームページは「Python（パイソン）」というソフトを使って組み立てています。Macには最初から入っていますが、<b>Windowsには入っていません</b>。そのため、Windowsのパソコンでは一度だけ入れてあげる必要があります。</p>
+  <p>Pythonは裏方のソフトなので、入れたあとに開いたり操作したりすることはありません。<b>入れっぱなしでOK</b>です。</p>
+</div>
+
+<div class="step">
+  <div class="step__no">W1</div>
+  <h3 class="step__title">「Microsoft Store」を開く</h3>
+  <div class="step__body">
+    <p>Microsoft Store は、Windowsに最初から入っている<b>アプリのお店</b>です。買い物袋のようなアイコンをしています。</p>
+    <ol>
+      <li>画面のいちばん下（または左下）にある <b>Windowsのマーク</b> をクリック</li>
+      <li>そのまま <code>microsoft store</code> とキーボードで入力</li>
+      <li>いちばん上に出てくる <b>Microsoft Store</b> をクリック</li>
+    </ol>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">W2</div>
+  <h3 class="step__title">「Python 3」を探して入れる</h3>
+  <div class="step__body">
+    <ol>
+      <li>Microsoft Store の上のほうにある<b>検索欄</b>（虫めがねマーク）をクリック</li>
+      <li><code>Python 3</code> と入力して <b>Enter</b> キーを押す</li>
+      <li>一覧に <b>Python 3.12</b> のようなものが並びます。<b>数字がいちばん大きいもの</b>をクリック<br>
+        <span class="key">（3.11 でも 3.13 でも問題ありません）</span></li>
+      <li>青い <span class="ui">入手</span> または <span class="ui">インストール</span> ボタンを押す</li>
+      <li>「ダウンロード中」→「開く」に変わったら完了です</li>
+    </ol>
+    <p><b>「開く」は押さなくて大丈夫です。</b>そのままウィンドウを閉じてください。設定する項目はありません。</p>
+    <p class="key">※ 途中で Microsoft アカウントのサインインを求められたら、「後で」「スキップ」などを押して閉じても、インストールは進みます。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">W3</div>
+  <h3 class="step__title">「Windows用」フォルダの中を使う</h3>
+  <div class="step__body">
+    <p>準備はこれで終わりです。あとは、フォルダの中の <span class="file">Windows用</span> を開いてください。</p>
+    <p>中に、Macとまったく同じ①〜⑥のファイルが入っています。</p>
+    <ul>
+      <li><span class="file">① 編集をはじめる.bat</span> … 文章や写真を直す</li>
+      <li><span class="file">② ホームページを見る.bat</span> … できあがりを見る</li>
+      <li><span class="file">③ 点検する.bat</span> … リンク切れなどをチェック</li>
+      <li><span class="file">④ バックアップを取る.bat</span> … まちがえたとき用に保存</li>
+      <li><span class="file">⑤ 共有用にまとめる.bat</span> … 他のPCへ渡すZIPを作る</li>
+      <li><span class="file">⑥ 変更をGitHubに送る.bat</span> … 直した内容を公開する</li>
+    </ul>
+    <p><b>使い方はMacとまったく同じで、ダブルクリックするだけ</b>です。</p>
+    <p class="key">※ <span class="file">_python.bat</span> は他のファイルが内部で使うものです。ダブルクリックしないでください。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>「WindowsによってPCが保護されました」と青い画面が出たら</h3>
+  <p><span class="ui">詳細情報</span> をクリック → 下に出てくる <span class="ui">実行</span> を押してください。自分たちで作ったファイルなので問題ありません。初回だけ出ます。</p>
+</div>
+
+<div class="card">
+  <h3>Pythonが入っているか分からないとき</h3>
+  <p>とりあえず <span class="file">③ 点検する.bat</span> をダブルクリックしてみてください。入っていなければ、黒い画面にインストール手順が日本語で表示されます。入っていれば点検結果が出ます。</p>
 </div>
 
 <div class="step">

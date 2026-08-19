@@ -26,9 +26,22 @@ def include(path: Path) -> bool:
     return path.name not in SKIP_NAMES
 
 
+def desktop_dir() -> Path:
+    """デスクトップの場所を探す（Windows で OneDrive を使っている場合にも対応）。"""
+    for candidate in (
+        Path.home() / "Desktop",
+        Path.home() / "OneDrive" / "Desktop",
+        Path.home() / "OneDrive" / "デスクトップ",
+        Path.home() / "デスクトップ",
+    ):
+        if candidate.is_dir():
+            return candidate
+    return ROOT.parent
+
+
 def main() -> None:
     stamp = datetime.now(JST).strftime("%Y-%m-%d")
-    target = Path.home() / "Desktop" / f"kuricare-site_共有用_{stamp}.zip"
+    target = desktop_dir() / f"kuricare-site_共有用_{stamp}.zip"
 
     files = [p for p in sorted(ROOT.rglob("*")) if p.is_file() and include(p)]
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
@@ -36,7 +49,7 @@ def main() -> None:
             z.write(p, Path("kuricare-site") / p.relative_to(ROOT))
 
     size = target.stat().st_size / 1024 / 1024
-    print(f"✅ できました: デスクトップ / {target.name}")
+    print(f"✅ できました: {target}")
     print(f"   {len(files)}ファイル / {size:.0f}MB")
     print()
     print("【渡しかた】")

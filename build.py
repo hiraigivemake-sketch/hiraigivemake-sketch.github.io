@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import sys
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -381,9 +382,19 @@ def build() -> dict:
     blog = load_posts(CONTENT / "blog", "blog")
     recruit = load_posts(CONTENT / "recruit", "recruit")
 
-    if DIST.exists():
-        shutil.rmtree(DIST)
-    DIST.mkdir(parents=True)
+    # Windows ではプレビュー表示中にファイルが掴まれていることがあるので、少し待って再挑戦する
+    for attempt in range(3):
+        if not DIST.exists():
+            break
+        try:
+            shutil.rmtree(DIST)
+            break
+        except OSError:
+            if attempt == 2:
+                shutil.rmtree(DIST, ignore_errors=True)
+            else:
+                time.sleep(0.4)
+    DIST.mkdir(parents=True, exist_ok=True)
 
     site["build_time"] = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     site["year"] = datetime.now(JST).year
