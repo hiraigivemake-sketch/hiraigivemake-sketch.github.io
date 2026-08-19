@@ -147,56 +147,175 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
   </div>
 </div>
 
-<h2>ステップ3：自動公開をONにする</h2>
+<h2>ステップ3：公開の設定を切り替える</h2>
+
+<div class="warn">
+  <p><b>ここがいちばん間違えやすい場所です。</b>GitHubは初期設定のままだと、ホームページではなく「説明書」のページを公開してしまいます。下の手順で切り替えてください。</p>
+</div>
 
 <div class="step">
   <div class="step__no">6</div>
-  <h3 class="step__title">GitHubのサイトで設定を1か所変える</h3>
+  <h3 class="step__title">GitHubのページを開く</h3>
   <div class="step__body">
-    <p>GitHub Desktop の <span class="ui">View on GitHub</span> を押すと、ブラウザでリポジトリが開きます。</p>
-    <ol>
-      <li>上のタブから <span class="ui">Settings</span> を選ぶ</li>
-      <li>左のメニューから <span class="ui">Pages</span> を選ぶ</li>
-      <li><b>Build and deployment</b> の <b>Source</b> を <span class="ui">Deploy from a branch</span> から <span class="ui">GitHub Actions</span> に変える</li>
-    </ol>
-    <p>変えた瞬間に保存されます。ボタンを押す必要はありません。</p>
+    <p>GitHub Desktop の画面の右側にある <span class="ui">View on GitHub</span> というボタンを押します。ブラウザ（Chrome や Safari）が開きます。</p>
+    <p class="key">※ すでにブラウザで開いている場合は、そのままで大丈夫です。</p>
   </div>
 </div>
 
 <div class="step">
   <div class="step__no">7</div>
-  <h3 class="step__title">公開されるのを待つ</h3>
+  <h3 class="step__title">「Settings」を押す</h3>
   <div class="step__body">
-    <p>上のタブの <span class="ui">Actions</span> を開くと「サイトを公開する」という作業が動いています。</p>
-    <p>黄色い丸●が回っている間は作業中、<b>緑のチェック✓</b>になれば完了です（2〜3分）。</p>
-    <p>完了したら <code>https://ユーザー名.github.io/</code> を開いてください。ホームページが表示されます。</p>
-    <p class="key">※ 赤い×になったときは、そのまま Claude Code に「Actionsが赤くなった」と伝えてください。原因を調べます。</p>
+    <p>画面の上のほうに、文字が横一列に並んでいます。</p>
+    <p><code>Code　Issues　Pull requests　Actions　Projects　Wiki　Security　Insights　<b>Settings</b></code></p>
+    <p>このうち<b>いちばん右にある「Settings」</b>をクリックしてください。歯車のマークが付いています。</p>
   </div>
 </div>
 
-<h2>これからの更新のしかた</h2>
+<div class="step">
+  <div class="step__no">8</div>
+  <h3 class="step__title">左のメニューから「Pages」を探す</h3>
+  <div class="step__body">
+    <p>画面の左側に、メニューが縦に長く並びます。マウスで<b>下のほうへスクロール</b>すると、「Code and automation」というグループの中に <span class="ui">Pages</span> があります。これをクリックします。</p>
+    <p class="key">※ 見つからないときは、キーボードの <code>⌘ + F</code> を押して「Pages」と入力すると探せます。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">9</div>
+  <h3 class="step__title">「Source」を切り替える ← ここが本番</h3>
+  <div class="step__body">
+    <p>真ん中に <b>Build and deployment</b> という見出しがあります。そのすぐ下の <b>Source</b> という欄に、こう書かれた箱があります。</p>
+    <p><span class="ui">Deploy from a branch</span></p>
+    <p>この箱をクリックすると、選択肢が2つ出ます。<b>下の</b> <span class="ui">GitHub Actions</span> を選んでください。</p>
+    <p><b>保存ボタンはありません。</b>選んだ瞬間に設定が変わります。画面が少し変化すれば成功です。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">10</div>
+  <h3 class="step__title">もう一度だけ、公開の作業を動かす</h3>
+  <div class="step__body">
+    <p>設定を変えただけでは、ホームページはまだ切り替わりません。もう一度だけ作業を動かします。</p>
+    <ol>
+      <li>画面上部の <span class="ui">Actions</span> をクリック</li>
+      <li>左側の一覧から <span class="ui">サイトを公開する</span> をクリック</li>
+      <li>右側に出てくる <span class="ui">最初の登録</span> という行をクリック</li>
+      <li>開いた画面の<b>右上</b>にある <span class="ui">Re-run all jobs</span> ボタンを押す</li>
+      <li>確認の小窓が出たら、もう一度 <span class="ui">Re-run jobs</span> を押す</li>
+    </ol>
+    <p>黄色い丸●が回り始めます。2〜3分待って<b>緑のチェック✓</b>になれば完成です。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">11</div>
+  <h3 class="step__title">ホームページを見る</h3>
+  <div class="step__body">
+    <p>ブラウザで <code>https://hiraigivemake-sketch.github.io/</code> を開いてください。</p>
+    <p><b>オレンジ色のクリケアのホームページ</b>が表示されれば成功です。</p>
+    <p class="key">※ 白い画面に黒い文字だけ、または「クリケア訪問看護ステーション ホームページ」という見出しの説明書が出る場合は、ステップ9がまだ反映されていません。3分ほど待って再読み込み（⌘+R）してみてください。</p>
+  </div>
+</div>
+
+<h2>これからの使い方</h2>
 
 <div class="callout">
-  <p><strong>いつもの流れ</strong></p>
-  <p>① <span class="file">① 編集をはじめる</span> で編集する<br>
-  → ② <span class="file">⑥ 変更をGitHubに送る</span> をダブルクリック<br>
-  → ③ 1〜2分でホームページが自動更新される</p>
+  <p><strong>覚えることは1つだけです。</strong></p>
+  <p>ホームページを直したら、<span class="file">⑥ 変更をGitHubに送る</span> をダブルクリックする。<br>
+  それだけで、1〜2分後にインターネット上のホームページが新しくなります。</p>
+</div>
+
+<div class="step">
+  <div class="step__no">A</div>
+  <h3 class="step__title">文章や写真を直したいとき</h3>
+  <div class="step__body">
+    <ol>
+      <li><span class="file">① 編集をはじめる</span> をダブルクリック</li>
+      <li>ブラウザの編集画面で直して、下の <span class="ui">保存する</span> を押す</li>
+      <li>右上の <span class="ui">サイトを見る</span> で仕上がりを確認</li>
+      <li>編集画面と黒い画面を閉じる</li>
+      <li><span class="file">⑥ 変更をGitHubに送る</span> をダブルクリック</li>
+    </ol>
+    <p>黒い画面に「✅ 送信しました」と出れば完了です。1〜2分後にホームページが新しくなります。</p>
+    <p class="key">※ ⑥は送る前に自動で点検します。リンク切れなどがあると送信を止めて教えてくれるので、壊れたものが公開される心配はありません。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">B</div>
+  <h3 class="step__title">Claude Code に直してもらったとき</h3>
+  <div class="step__body">
+    <p>「トップの文章を変えて」「スタッフを1人増やして」などと Claude Code に頼んだ場合も、<b>やることは同じ</b>です。</p>
+    <ol>
+      <li>Claude Code が直し終わるのを待つ</li>
+      <li><span class="file">② ホームページを見る</span> で仕上がりを確認</li>
+      <li><span class="file">⑥ 変更をGitHubに送る</span> をダブルクリック</li>
+    </ol>
+    <p>どこが変わったのか目で確かめたいときは、GitHub Desktop を開いてください。左側に変わったファイル、右側に「赤＝消えた文字」「緑＝増えた文字」が色分けで表示されます。確認したら、左下に一言（例：<code>トップの文章を修正</code>）を入れて <span class="ui">Commit to main</span> → 上の <span class="ui">Push origin</span> を押します。⑥ を押すのと同じ結果になります。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">C</div>
+  <h3 class="step__title">まちがえて公開してしまったとき</h3>
+  <div class="step__body">
+    <p>あわてなくて大丈夫です。すべての変更が記録に残っているので、いつでも戻せます。</p>
+    <ol>
+      <li>GitHub Desktop を開く</li>
+      <li>左上の <span class="ui">History</span> タブをクリック</li>
+      <li>戻したい記録（日時と一言が並んでいます）を<b>右クリック</b></li>
+      <li><span class="ui">Revert changes in commit</span> を選ぶ</li>
+      <li>上の <span class="ui">Push origin</span> を押す</li>
+    </ol>
+    <p>1〜2分でホームページが元の状態に戻ります。</p>
+  </div>
+</div>
+
+<h2>他のパソコンでも編集する</h2>
+
+<div class="callout">
+  <p>GitHubに置いてあるので、<strong>何台のパソコンからでも編集できます。</strong><br>
+  USBメモリで持ち運ぶ必要はありません。</p>
+</div>
+
+<div class="step">
+  <div class="step__no">D</div>
+  <h3 class="step__title">2台目のパソコンでの、はじめの準備（1回だけ）</h3>
+  <div class="step__body">
+    <ol>
+      <li>そのパソコンに GitHub Desktop をインストールし、<b>同じアカウント</b>でログイン</li>
+      <li>メニューの <span class="ui">File</span> → <span class="ui">Clone repository…</span> を選ぶ</li>
+      <li>一覧から <span class="ui">hiraigivemake-sketch.github.io</span> を選ぶ</li>
+      <li>保存先を「デスクトップ」にして <span class="ui">Clone</span> を押す</li>
+    </ol>
+    <p>ダウンロードが終わると、1台目とまったく同じフォルダができます。<span class="file">① 編集をはじめる</span> などのボタンもそのまま入っています。</p>
+    <p class="key">※ Windows のパソコンなら、フォルダの中の <span class="file">Windows用</span> の中にある <span class="file">.bat</span> ファイルを使います。先に Microsoft Store で「Python 3」をインストールしておいてください。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">E</div>
+  <h3 class="step__title">2台目以降で編集するときの、大事なルール</h3>
+  <div class="step__body">
+    <p><b>編集を始める前に、必ず最新の状態にしてください。</b></p>
+    <ol>
+      <li>GitHub Desktop を開く</li>
+      <li>上の <span class="ui">Fetch origin</span> を押す</li>
+      <li><span class="ui">Pull origin</span> に変わったら、それも押す</li>
+      <li>その後に <span class="file">① 編集をはじめる</span> で編集する</li>
+    </ol>
+    <div class="warn" style="margin-top:14px">
+      <p><b>これをしないと、他のパソコンでの変更が消えることがあります。</b><br>
+      「編集の前に Fetch と Pull」──これだけ習慣にしてください。<br>
+      また、2人が同時に編集するのは避けてください。「いまから触ります」と一声かけるルールにしておくと安全です。</p>
+    </div>
+  </div>
 </div>
 
 <div class="card">
-  <h3><span class="file">⑥ 変更をGitHubに送る</span> が行うこと</h3>
-  <p>送る前に自動で点検し、リンク切れや画像の抜けがあれば送信を止めます。問題がなければ、日付入りで記録を残してGitHubへ送ります。</p>
-  <p>GitHub Desktop の画面から <span class="ui">Commit to main</span> → <span class="ui">Push origin</span> を押しても同じことができます。変更内容を目で確かめたいときはこちらが便利です。</p>
-</div>
-
-<div class="card">
-  <h3>まちがえたときに戻す</h3>
-  <p>GitHub Desktop の <span class="ui">History</span> タブに、これまでの記録がすべて並んでいます。戻したい時点を右クリックして <span class="ui">Revert changes in commit</span> を選べば、その変更だけを取り消せます。</p>
-</div>
-
-<div class="card">
-  <h3>他のパソコンから編集する</h3>
-  <p>そのパソコンにも GitHub Desktop を入れてログインし、<span class="ui">File</span> → <span class="ui">Clone repository</span> から選ぶだけです。編集する前に <span class="ui">Fetch origin</span> を押して最新にしてから始めてください。</p>
+  <h3>もし「Conflict（衝突）」と出たら</h3>
+  <p>2人が同じ場所を同時に直してしまったときに出ます。自分で直そうとせず、そのまま Claude Code に「GitHub Desktop で Conflict と出た」と伝えてください。安全に解決します。</p>
 </div>
 
 <h2>最後の仕上げ：独自ドメインへの切り替え</h2>
@@ -232,6 +351,9 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
 
   <dt>Actions が赤い×になった</dt>
   <dd>×を押すと、どこで止まったかが表示されます。その画面をスクリーンショットするか、赤い文字をコピーして Claude Code に伝えてください。</dd>
+
+  <dt>ホームページではなく「説明書」のページが出る</dt>
+  <dd>ステップ9の設定（Source を GitHub Actions に変更）がまだの可能性があります。Actions の一覧に <code>pages-build-deployment</code> という項目があれば、それが原因です。ステップ9と10をやり直してください。</dd>
 
   <dt>ページは出るが、文字だけで見た目が崩れている</dt>
   <dd>リポジトリ名が <code>ユーザー名.github.io</code> になっていない可能性が高いです。Settings の <span class="ui">Repository name</span> から名前を変更してください。</dd>
