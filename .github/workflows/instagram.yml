@@ -1,0 +1,95 @@
+# ---------------------------------------------------------------------------
+# インスタグラムの最新投稿を毎日取り込んで、ホームページを作り直して公開します。
+#
+# 動かすには、GitHub の Settings → Secrets and variables → Actions に
+# 「IG_TOKEN」（インスタグラムのアクセストークン）を登録してください。
+# あわせて「GH_PAT」を登録しておくと、トークンの期限切れも自動で防ぎます。
+# どちらも未登録のうちは、何もせず正常終了します。
+# ---------------------------------------------------------------------------
+name: インスタグラムの投稿を取り込む
+
+on:
+  schedule:
+    - cron: "0 21 * * *"      # 日本時間で毎朝6時ごろ
+  workflow_dispatch:          # 手動で実行したいとき用
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ソースを取得
+        uses: actions/checkout@v4
+
+      - name: Python を準備
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # インスタグラムのトークンは60日で切れる。毎日更新して切れないようにする。
+      - name: アクセストークンを更新する
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: |
+          if [ -z "$IG_TOKEN" ]; then
+            echo "IG_TOKEN が未登録のため、更新をとばします。"; exit 0
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_PAT が未登録のため、自動更新をとばします（60日以内に手動更新が必要です）。"; exit 0
+          fi
+          NEW=$(curl -sS "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${IG_TOKEN}" \
+                | python -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" || true)
+          if [ -n "$NEW" ]; then
+            printf '%s' "$NEW" | gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY"
+            echo "アクセストークンを更新しました（有効期限が60日先に伸びました）。"
+          else
+            echo "トークンを更新できませんでした。期限切れの可能性があります。"
+          fi
+
+      - name: インスタグラムから最新の投稿を取り込む
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: python3 tools/fetch_instagram.py
+
+      - name: 変更があれば記録する
+        run: |
+          git config user.name "kuricare-site"
+          git config user.email "actions@github.com"
+          git add content/instagram.json assets/images/instagram
+          if git diff --cached --quiet; then
+            echo "新しい投稿はありませんでした。"
+          else
+            git commit -m "インスタグラムの最新投稿を取り込み"
+            git push
+          fi
+
+      - name: サイトを生成
+        run: python3 build.py
+
+      - name: 点検（問題があればここで止まります）
+        run: python3 tools/check.py
+
+      - name: 公開用に受け渡し
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 公開する
+        id: deployment
+        uses: actions/deploy-pages@v4
