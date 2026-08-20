@@ -57,22 +57,33 @@ if errorlevel 1 (
 
 rem 変更があるか調べる（結果をファイルに出して、中身が空かどうかで判断）
 %GIT% status --porcelain > "%TEMP%\kuricare_status.txt" 2>&1
-for %%A in ("%TEMP%\kuricare_status.txt") do if %%~zA equ 0 (
+set NEWCHANGE=1
+for %%A in ("%TEMP%\kuricare_status.txt") do if %%~zA equ 0 set NEWCHANGE=
+
+rem まだ送っていない記録があるか（前回、記録だけして送信できなかった場合など）
+%GIT% fetch --quiet origin > nul 2>&1
+set UNPUSHED=0
+for /f %%N in ('%GIT% rev-list --count @{u}..HEAD 2^>nul') do set UNPUSHED=%%N
+
+if "%NEWCHANGE%"=="" if "%UNPUSHED%"=="0" (
   echo 変更はありません。すでに最新の状態です。
   goto :end
 )
+if "%NEWCHANGE%"=="" goto :pushonly
 echo 今回の変更
 %GIT% status --short
 echo.
 %GIT% add -A
 for /f "tokens=1-3 delims=/ " %%a in ("%date%") do set D=%%a-%%b-%%c
 %GIT% commit -m "サイト更新 %D% %time:~0,5%" > nul
+:pushonly
 echo GitHubへ送信中...
 %GIT% push
 if errorlevel 1 (
   echo.
   echo 送信できませんでした。
   echo GitHub Desktop を開いて「Push origin」を押してみてください。
+  echo （記録はすでに済んでいるので、内容が失われることはありません）
 ) else (
   echo.
   echo 送信しました。1〜2分でホームページに反映されます。
