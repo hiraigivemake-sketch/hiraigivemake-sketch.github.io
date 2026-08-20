@@ -10,8 +10,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import stat
 import sys
 import time
 from datetime import datetime, timezone, timedelta
@@ -24,6 +26,10 @@ ASSETS = ROOT / "assets"
 DIST = ROOT / "dist"
 
 JST = timezone(timedelta(hours=9))
+
+# Windows の黒い画面が Shift-JIS のとき、絵文字入りのメッセージで止まらないようにする
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 # ---------------------------------------------------------------- テンプレート
@@ -377,6 +383,81 @@ def write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def make_writable(path: Path) -> None:
+    """「読み取り専用」を外す。ほかの権限はそのまま残す（Linux でも安全に動かすため）。"""
+    try:
+        os.chmod(path, os.stat(path).st_mode | stat.S_IWRITE)
+    except OSError:
+        pass
+
+
+def remove_path(path: Path, tries: int = 5) -> None:
+    """ファイル／フォルダを消す。
+
+    OneDrive はフォルダに「読み取り専用」属性をつけることがあり、そのままだと
+    Windows では削除できない（アクセスが拒否されました）。属性を外してから消す。
+    一瞬つかまれているだけのこともあるので、少し待って数回やり直す。
+    """
+    for attempt in range(tries):
+        try:
+            if path.is_dir() and not path.is_symlink():
+                for child in path.iterdir():
+                    remove_path(child, tries)
+                make_writable(path)
+                path.rmdir()
+            elif path.exists():
+                make_writable(path)
+                path.unlink()
+            return
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(0.3 * (attempt + 1))
+
+
+def clean_dist() -> None:
+    """dist/ の生成物を消す。assets/ は残し、sync_assets() で差分更新する。
+
+    以前は dist/ をまるごと rmtree していたが、OneDrive 同期フォルダの中では
+    削除が途中で PermissionError になることがある。そうなると画像や CSS だけが
+    消えた壊れた dist/ が残り、サイトのレイアウトが崩れてしまう。
+    """
+    DIST.mkdir(parents=True, exist_ok=True)
+    for child in DIST.iterdir():
+        if child.name == "assets":
+            continue
+        remove_path(child)
+
+
+def sync_assets() -> None:
+    """assets/ を dist/assets/ へ差分コピーする。
+
+    毎回まるごとコピーし直すと 40MB 超・数百ファイルの削除と作成が毎回発生し、
+    OneDrive の同期とぶつかる。中身が変わったものだけ入れ替える。
+    """
+    dest_root = DIST / "assets"
+    dest_root.mkdir(parents=True, exist_ok=True)
+
+    wanted = set()
+    for src in ASSETS.rglob("*"):
+        if src.is_dir() or src.name == ".DS_Store":
+            continue
+        rel = src.relative_to(ASSETS)
+        wanted.add(rel)
+        dest = dest_root / rel
+        if dest.exists():
+            s, d = src.stat(), dest.stat()
+            if s.st_size == d.st_size and abs(s.st_mtime - d.st_mtime) <= 2:
+                continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+
+    # assets/ から消したファイルは dist/ からも消す
+    for dest in list(dest_root.rglob("*")):
+        if dest.is_file() and dest.relative_to(dest_root) not in wanted:
+            remove_path(dest)
+
+
 def build() -> dict:
     site = read_json(CONTENT / "site.json")
     pages = {p.stem: enrich(read_json(p)) for p in sorted((CONTENT / "pages").glob("*.json"))}
@@ -389,19 +470,21 @@ def build() -> dict:
     blog = load_posts(CONTENT / "blog", "blog")
     recruit = load_posts(CONTENT / "recruit", "recruit")
 
-    # Windows ではプレビュー表示中にファイルが掴まれていることがあるので、少し待って再挑戦する
-    for attempt in range(3):
-        if not DIST.exists():
-            break
-        try:
-            shutil.rmtree(DIST)
-            break
-        except OSError:
-            if attempt == 2:
-                shutil.rmtree(DIST, ignore_errors=True)
-            else:
-                time.sleep(0.4)
-    DIST.mkdir(parents=True, exist_ok=True)
+    # --- インスタグラム欄 -------------------------------------------------
+    # 表示のオン・オフは site.json の home_bottom、投稿の中身は instagram.json。
+    # 将来「自動で取ってくる」仕組みを足すときも、instagram.json を書き換えるだけでよい。
+    bottom = site.get("home_bottom") or {}
+    ig_file = CONTENT / "instagram.json"
+    ig_all = (read_json(ig_file).get("posts") or []) if ig_file.exists() else []
+    ig_posts = [x for x in ig_all if x.get("image")][: bottom.get("instagram_count", 4)]
+    ig_block = {
+        "posts": ig_posts,
+        "profile_url": (site.get("social") or {}).get("instagram", ""),
+    }
+    show_ig = bool(bottom.get("show_instagram")) and bool(ig_posts)
+    ig_first = bool(bottom.get("instagram_first"))
+
+    clean_dist()
 
     site["build_time"] = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     site["year"] = datetime.now(JST).year
@@ -413,6 +496,9 @@ def build() -> dict:
             "blog": blog,
             "recruit": recruit,
             "blog_latest": blog[: site.get("blog_home_count", 4)],
+            "show_blog": bottom.get("show_blog", True),
+            "instagram_top": ig_block if (show_ig and ig_first) else None,
+            "instagram_bottom": ig_block if (show_ig and not ig_first) else None,
         }
         if extra:
             ctx.update(extra)
@@ -454,7 +540,7 @@ def build() -> dict:
             emit(post["url"], f"{kind}-post", post_ctx)
 
     # --- 静的ファイル -----------------------------------------------------
-    shutil.copytree(ASSETS, DIST / "assets")
+    sync_assets()
     # static/ の中身は、そのまま公開フォルダの直下へ置く
     # （robots.txt、独自ドメイン用の CNAME など）
     static_dir = ROOT / "static"

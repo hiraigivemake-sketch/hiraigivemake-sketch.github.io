@@ -11,6 +11,7 @@ IMAGE_KEYS = {
 LONG_KEYS = {
     "text", "body_md", "description", "summary", "a", "answer",
     "text_html", "subtitle_html", "title_html", "catch", "value",
+    "caption",
 }
 
 # 編集画面に出さない項目
@@ -18,6 +19,8 @@ HIDDEN_KEYS = {"_comment", "template", "slug", "url_pattern"}
 
 # 大きなまとまり（ページ内のセクション）の名前
 SECTION_LABELS = {
+    "home_bottom": "ホーム下部の表示（ブログ・インスタグラム）",
+    "posts": "インスタグラムの投稿",
     "hero": "メインビジュアル（一番上の大きな部分）",
     "notice": "お知らせ帯（オレンジの横長バナー）",
     "service": "「Service」セクション",
@@ -64,6 +67,12 @@ SECTION_LABELS = {
 
 # ひとつひとつの入力欄の名前
 FIELD_LABELS = {
+    "show_blog": "ブログ欄を表示する",
+    "show_instagram": "インスタグラム欄を表示する",
+    "instagram_first": "インスタグラムをブログより上に置く",
+    "instagram_count": "インスタグラムを何件並べるか",
+    "caption": "説明文（写真の下に2行まで出ます）",
+    "post_url": "投稿のリンク先（https://www.instagram.com/p/... ）",
     "title": "見出し",
     "title_en": "英語の見出し",
     "title_html": "見出し（改行できます）",
@@ -152,6 +161,7 @@ FIELD_LABELS = {
 
 # 配列に「＋追加」ボタンを出すときの、追加ボタンの文言
 ADD_LABELS = {
+    "posts": "インスタグラムの投稿を追加",
     "members": "スタッフを追加",
     "items": "項目を追加",
     "rows": "行を追加",

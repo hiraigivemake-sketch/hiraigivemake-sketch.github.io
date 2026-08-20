@@ -1,0 +1,20 @@
+<!-- インスタグラム（「サイト全体の設定」→「ホーム下部の表示」でオンにすると出ます） -->
+<section class="section">
+  <div class="container">
+    <div class="heading heading--center">
+      <span class="heading__jp">インスタグラム</span>
+      <span class="heading__en">Instagram</span>
+    </div>
+    <div class="card-grid">
+      {{# posts }}
+      <a class="ig-card" href="{{ post_url }}" target="_blank" rel="noopener">
+        <img class="ig-card__thumb" src="{{ image }}" alt="" loading="lazy">
+        {{# caption }}<span class="ig-card__caption">{{ caption }}</span>{{/ caption }}
+      </a>
+      {{/ posts }}
+    </div>
+    <div class="center-action">
+      <a class="btn" href="{{ profile_url }}" target="_blank" rel="noopener">Instagramで見る {{> arrow }}</a>
+    </div>
+  </div>
+</section>

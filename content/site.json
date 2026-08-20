@@ -7,6 +7,12 @@
   "favicon": "/assets/images/favicon.png",
   "og_image": "/assets/images/og-image.jpg",
   "blog_home_count": 4,
+  "home_bottom": {
+    "show_blog": true,
+    "show_instagram": false,
+    "instagram_first": false,
+    "instagram_count": 4
+  },
   "company": {
     "legal_name": "株式会社GIVE&MAKE",
     "office": "クリケア訪問看護ステーション",

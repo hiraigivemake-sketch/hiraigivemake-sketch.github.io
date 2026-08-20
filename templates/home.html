@@ -100,7 +100,10 @@
   </div>
 </section>
 
+{{# instagram_top }}{{> home-instagram }}{{/ instagram_top }}
+
 <!-- ブログ -->
+{{# show_blog }}
 <section class="section section--bg">
   <div class="container">
     <div class="heading heading--center">
@@ -121,5 +124,8 @@
     </div>
   </div>
 </section>
+{{/ show_blog }}
+
+{{# instagram_bottom }}{{> home-instagram }}{{/ instagram_bottom }}
 
 {{> foot }}
