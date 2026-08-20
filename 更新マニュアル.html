@@ -1,0 +1,409 @@
+<meta charset="utf-8">
+<title>ホームページ更新マニュアル</title>
+<style>
+:root{
+  --ground:#FBF7EF; --panel:#FFFFFF; --sunken:#F5EFE5;
+  --ink:#33302C; --ink-soft:#6E5A47;
+  --accent:#ED7300; --accent-soft:#FCEEDD; --rule:#E7DCCA;
+  --warn:#B3261E; --warn-soft:#FBEDEC;
+  --ok:#1E7A3C; --ok-soft:#E9F5EC;
+  --shadow:0 1px 2px rgba(105,85,68,.05),0 8px 26px rgba(105,85,68,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+    --ink:#F0E9DF; --ink-soft:#B8A794;
+    --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+    --warn:#FF8A80; --warn-soft:#3A211E;
+    --ok:#7FD69B; --ok-soft:#1E3325;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+  --ink:#F0E9DF; --ink-soft:#B8A794;
+  --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+  --warn:#FF8A80; --warn-soft:#3A211E;
+  --ok:#7FD69B; --ok-soft:#1E3325;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.9;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding:52px 22px 100px}
+
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);margin:0 0 12px}
+h1{margin:0;font-size:clamp(28px,6.5vw,42px);font-weight:800;line-height:1.3;letter-spacing:-.015em;text-wrap:balance}
+.sub{margin:16px 0 0;color:var(--ink-soft);font-size:15px}
+
+/* ---- OS切り替え ---- */
+.osbar{position:sticky;top:0;z-index:10;margin:28px 0 0;padding:12px 0;
+  background:linear-gradient(var(--ground) 70%,transparent);
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.osbar__label{font-size:13px;font-weight:700;color:var(--ink-soft)}
+.ostoggle{display:inline-flex;padding:3px;border-radius:999px;background:var(--sunken);border:1px solid var(--rule)}
+.ostoggle button{appearance:none;border:0;background:none;font:inherit;font-size:14px;font-weight:700;
+  color:var(--ink-soft);padding:7px 20px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s}
+.ostoggle button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.ostoggle button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+h2{margin:56px 0 0;font-size:13px;font-weight:700;letter-spacing:.18em;color:var(--ink-soft);
+  padding-bottom:12px;border-bottom:1px solid var(--rule)}
+
+/* ---- 全体図 ---- */
+figure.map{margin:26px 0 0;padding:22px;border-radius:16px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+figure.map svg{width:100%;height:auto;display:block}
+figure.map figcaption{margin-top:14px;font-size:14px;color:var(--ink-soft);line-height:1.75}
+
+/* ---- 手順ステップ ---- */
+.flow{margin-top:24px;display:grid;gap:14px}
+.stepcard{display:grid;grid-template-columns:52px 1fr;gap:0 18px;padding:20px 22px;
+  border-radius:16px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.stepcard__no{grid-row:1/span 4;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--accent);color:#fff;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.stepcard__title{margin:8px 0 0;font-size:19px;font-weight:700;line-height:1.5}
+.stepcard__do{margin:12px 0 0;padding:14px 16px;border-radius:11px;background:var(--sunken);font-weight:700}
+.stepcard__note{margin:10px 0 0;font-size:14.5px;color:var(--ink-soft)}
+.stepcard__note p{margin:0}
+.stepcard__note p+p{margin-top:6px}
+
+.file{display:inline-block;padding:2px 11px;border-radius:8px;background:var(--accent-soft);
+  border:1px solid var(--rule);font-weight:700;font-size:14.5px;white-space:nowrap;color:var(--ink)}
+.ui{display:inline-block;padding:2px 10px;border-radius:7px;background:var(--sunken);
+  border:1px solid var(--rule);font-weight:700;font-size:14px;white-space:nowrap}
+code{background:var(--sunken);border:1px solid var(--rule);padding:1px 7px;border-radius:6px;font-size:13.5px;word-break:break-all}
+
+.callout{margin:26px 0 0;padding:20px 22px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--rule)}
+.callout p{margin:0}
+.callout p+p{margin-top:10px}
+.callout strong{color:var(--accent)}
+
+.warn{margin:20px 0 0;padding:18px 20px;border-radius:13px;background:var(--warn-soft);border:1px solid var(--warn)}
+.warn p{margin:0;font-size:15px}
+.warn p+p{margin-top:8px}
+.warn b{color:var(--warn)}
+
+.good{margin:20px 0 0;padding:18px 20px;border-radius:13px;background:var(--ok-soft);border:1px solid var(--ok)}
+.good p{margin:0;font-size:15px}
+.good b{color:var(--ok)}
+
+.card{margin-top:14px;padding:20px 22px;border-radius:14px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.card h3{margin:0 0 8px;font-size:16.5px;font-weight:700}
+.card p{margin:0;font-size:15px;color:var(--ink-soft)}
+.card p+p{margin-top:8px}
+.card ol,.card ul{margin:10px 0 0;padding-left:1.4em;font-size:15px;color:var(--ink-soft)}
+.card li{margin-bottom:5px}
+.card li b{color:var(--ink)}
+
+table{width:100%;border-collapse:collapse;margin-top:18px;font-size:15px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+thead th{color:var(--ink-soft);font-size:12.5px;font-weight:700;letter-spacing:.06em}
+tbody th{width:36%;font-weight:700;color:var(--ink)}
+
+dl.faq{margin:14px 0 0}
+dl.faq dt{margin-top:22px;font-weight:700}
+dl.faq dt::before{content:"？";color:var(--accent);font-weight:800;margin-right:8px}
+dl.faq dd{margin:6px 0 0 24px;color:var(--ink-soft);font-size:15px}
+
+/* ---- チェックリスト ---- */
+.checklist{margin-top:20px;padding:24px 26px;border-radius:16px;background:var(--panel);border:2px solid var(--accent)}
+.checklist h3{margin:0 0 4px;font-size:17px;font-weight:800;color:var(--accent)}
+.checklist p.lead{margin:0 0 16px;font-size:14px;color:var(--ink-soft)}
+.checklist ol{margin:0;padding:0;list-style:none;counter-reset:c}
+.checklist li{counter-increment:c;display:grid;grid-template-columns:26px 1fr;gap:14px;
+  padding:13px 0;border-top:1px dashed var(--rule);align-items:start}
+.checklist li:first-child{border-top:0}
+.checklist li::before{content:"";width:22px;height:22px;margin-top:5px;border:2px solid var(--rule);border-radius:6px}
+.checklist b{display:block;font-size:15.5px}
+.checklist span{display:block;font-size:13.5px;color:var(--ink-soft);line-height:1.7}
+
+.os-mac,.os-win{display:none}
+body[data-os="mac"] .os-mac{display:revert}
+body[data-os="win"] .os-win{display:revert}
+span.os-mac,span.os-win{display:none}
+body[data-os="mac"] span.os-mac{display:inline}
+body[data-os="win"] span.os-win{display:inline}
+
+footer{margin-top:72px;padding-top:24px;border-top:1px solid var(--rule);color:var(--ink-soft);font-size:13px}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+@media print{
+  body{background:#fff;color:#000}
+  .osbar{position:static}
+  .stepcard,.card,.checklist,figure.map{break-inside:avoid;box-shadow:none}
+}
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">クリケア訪問看護ステーション</p>
+<h1>ホームページ<br>更新マニュアル</h1>
+<p class="sub">GitHubを使った更新のしかたを、順番どおりにまとめました。パソコン操作に慣れていなくても、このとおりに進めれば大丈夫です。</p>
+
+<div class="osbar">
+  <span class="osbar__label">お使いのパソコン</span>
+  <div class="ostoggle" role="group" aria-label="パソコンの種類を選ぶ">
+    <button type="button" id="btnMac" aria-pressed="true">Mac</button>
+    <button type="button" id="btnWin" aria-pressed="false">Windows</button>
+  </div>
+  <span class="osbar__label" style="font-weight:400">を選ぶと、説明が切り替わります</span>
+</div>
+
+<h2>まず、全体のしくみ</h2>
+
+<figure class="map">
+<svg viewBox="0 0 700 190" role="img" aria-label="自分のパソコンで直し、GitHubへ送ると、ホームページが自動で新しくなる流れの図">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" text-anchor="middle">
+    <rect x="4" y="42" width="196" height="104" rx="16" fill="var(--sunken)" stroke="var(--rule)" stroke-width="1.5"/>
+    <text x="102" y="80" font-size="15" font-weight="700" fill="var(--ink)">あなたのパソコン</text>
+    <text x="102" y="106" font-size="12.5" fill="var(--ink-soft)">文章や写真を直す</text>
+    <text x="102" y="126" font-size="12.5" fill="var(--ink-soft)">（① 編集をはじめる）</text>
+
+    <rect x="252" y="42" width="196" height="104" rx="16" fill="var(--sunken)" stroke="var(--rule)" stroke-width="1.5"/>
+    <text x="350" y="80" font-size="15" font-weight="700" fill="var(--ink)">GitHub</text>
+    <text x="350" y="106" font-size="12.5" fill="var(--ink-soft)">変更を預かって記録する</text>
+    <text x="350" y="126" font-size="12.5" fill="var(--ink-soft)">（インターネット上の倉庫）</text>
+
+    <rect x="500" y="42" width="196" height="104" rx="16" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="598" y="80" font-size="15" font-weight="700" fill="var(--ink)">ホームページ</text>
+    <text x="598" y="106" font-size="12.5" fill="var(--ink-soft)">誰でも見られる状態に</text>
+    <text x="598" y="126" font-size="12.5" fill="var(--ink-soft)">（自動で作り直される）</text>
+
+    <line x1="206" y1="94" x2="243" y2="94" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ar)"/>
+    <text x="224" y="30" font-size="11.5" font-weight="700" fill="var(--accent)">⑥を押す</text>
+    <line x1="454" y1="94" x2="491" y2="94" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ar)"/>
+    <text x="472" y="30" font-size="11.5" font-weight="700" fill="var(--accent)">自動</text>
+    <text x="472" y="172" font-size="11.5" fill="var(--ink-soft)">1〜2分</text>
+  </g>
+</svg>
+<figcaption>直すのは<b>自分のパソコンの中だけ</b>です。「⑥」を押してGitHubへ送ると、そこから先はすべて自動で進み、1〜2分でインターネット上のホームページが新しくなります。</figcaption>
+</figure>
+
+<h2>毎回の作業：4つのステップ</h2>
+
+<div class="callout">
+  <p><strong>この4つだけです。</strong>慣れれば5分もかかりません。</p>
+</div>
+
+<div class="flow">
+
+  <div class="stepcard">
+    <div class="stepcard__no">1</div>
+    <h3 class="stepcard__title">最新の状態にする</h3>
+    <div class="stepcard__do">
+      GitHub Desktop を開き、上の <span class="ui">Fetch origin</span> を押す<br>
+      → <span class="ui">Pull origin</span> に変わったら、それも押す
+    </div>
+    <div class="stepcard__note">
+      <p><b>他のパソコンでも編集している場合は、必ずやってください。</b>これを忘れると、他の人の変更が消えてしまうことがあります。</p>
+      <p>1台のパソコンだけで使っている場合は、飛ばしても大丈夫です。</p>
+    </div>
+  </div>
+
+  <div class="stepcard">
+    <div class="stepcard__no">2</div>
+    <h3 class="stepcard__title">文章や写真を直す</h3>
+    <div class="stepcard__do">
+      <span class="os-mac"><span class="file">① 編集をはじめる.command</span> をダブルクリック</span>
+      <span class="os-win"><span class="file">Windows用</span> フォルダを開き、<span class="file">① 編集をはじめる.bat</span> をダブルクリック</span>
+    </div>
+    <div class="stepcard__note">
+      <p>黒い画面が出たあと、ブラウザで編集画面がひらきます。<b>黒い画面は閉じずにそのまま</b>にしてください。</p>
+      <p>左のメニューから直したいものを選び、書きかえたら画面下の <span class="ui">保存する</span> を押します。</p>
+      <p class="os-win">※ 「WindowsによってPCが保護されました」と出たら <span class="ui">詳細情報</span> → <span class="ui">実行</span> を押します（初回だけ）。</p>
+    </div>
+  </div>
+
+  <div class="stepcard">
+    <div class="stepcard__no">3</div>
+    <h3 class="stepcard__title">できあがりを確認する</h3>
+    <div class="stepcard__do">
+      編集画面の右上 <span class="ui">サイトを見る</span> を押す
+    </div>
+    <div class="stepcard__note">
+      <p>実際のホームページの見た目で確認できます。おかしければ編集画面に戻って直せば大丈夫です。<b>この時点ではまだ、インターネット上のホームページは変わっていません。</b></p>
+      <p>確認できたら、ブラウザと黒い画面を閉じます。</p>
+    </div>
+  </div>
+
+  <div class="stepcard">
+    <div class="stepcard__no">4</div>
+    <h3 class="stepcard__title">GitHubに送って公開する</h3>
+    <div class="stepcard__do">
+      <span class="os-mac"><span class="file">⑥ 変更をGitHubに送る.command</span> をダブルクリック</span>
+      <span class="os-win"><span class="file">Windows用</span> フォルダの <span class="file">⑥ 変更をGitHubに送る.bat</span> をダブルクリック</span>
+    </div>
+    <div class="stepcard__note">
+      <p>黒い画面に <b>「✅ 送信しました」</b> と出れば成功です。1〜2分後にホームページが新しくなります。</p>
+      <p>送る前に自動で点検されるので、リンク切れなどがあれば送信は止まります。<b>壊れたものが公開される心配はありません。</b></p>
+    </div>
+  </div>
+
+</div>
+
+<div class="good">
+  <p><b>迷ったら。</b>ステップ4まで進んでいなければ、インターネット上のホームページは何も変わりません。編集画面でいくら触っても大丈夫なので、安心して練習してください。</p>
+</div>
+
+<h2>場面ごとのやりかた</h2>
+
+<div class="card">
+  <h3>ブログを1本書く</h3>
+  <ol>
+    <li>編集画面の左メニュー <b>ブログ</b> をクリック</li>
+    <li><b>＋ 新しく追加</b> を押す</li>
+    <li>タイトル・日付を入れる</li>
+    <li><b>サムネイル画像</b>の <span class="ui">画像を選ぶ</span> で写真を選ぶ（右上からパソコンの写真もアップロードできます）</li>
+    <li>本文を書く。写真を入れたい場所で <span class="ui">本文に画像を入れる</span> を押す</li>
+    <li>下の <span class="ui">保存する</span> → 確認 → ステップ4（⑥を押す）</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h3>写真・イラストを差し替える</h3>
+  <ol>
+    <li>左メニューから直したいページを選ぶ</li>
+    <li>写真の横の <span class="ui">画像を選ぶ</span> を押す</li>
+    <li>一覧から選ぶ。新しい写真を使うなら、開いた画面の右上 <span class="ui">パソコンからアップロード</span></li>
+    <li><span class="ui">保存する</span> → 確認 → ステップ4（⑥を押す）</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h3>スタッフを1人増やす</h3>
+  <ol>
+    <li>左メニュー <b>スタッフ紹介</b> をクリック</li>
+    <li>「スタッフ」の見出しを開き、いちばん下の <span class="ui">＋ スタッフを追加</span> を押す</li>
+    <li>空のカードができるので、名前・写真・紹介文を入れる</li>
+    <li>順番は <span class="ui">↑</span> <span class="ui">↓</span> で変えられます</li>
+    <li><span class="ui">保存する</span> → 確認 → ステップ4（⑥を押す）</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h3>Claude Code に直してもらったあと</h3>
+  <p>やることは同じです。ステップ3（確認）→ ステップ4（⑥を押す）だけ行ってください。</p>
+  <p>どこが変わったか目で確かめたいときは、GitHub Desktop を開くと、左に変わったファイル、右に「赤＝消えた文字／緑＝増えた文字」が色分けで出ます。</p>
+</div>
+
+<h2>2台目以降のパソコンで使う</h2>
+
+<div class="card">
+  <h3>はじめの準備（そのパソコンで1回だけ）</h3>
+  <ol>
+    <li class="os-win"><b>Python を入れる</b>（Windowsのみ）… Microsoft Store で「Python 3」を検索し、数字がいちばん大きいものを「入手」。設定は不要です</li>
+    <li><b>GitHub Desktop を入れる</b> … <a href="https://desktop.github.com" target="_blank" rel="noopener">desktop.github.com</a> から。同じアカウントでログイン</li>
+    <li><b>フォルダを取り寄せる</b> … メニュー <span class="ui">File</span> → <span class="ui">Clone repository…</span> → 一覧から <code>hiraigivemake-sketch.github.io</code> を選ぶ → 保存先をデスクトップにして <span class="ui">Clone</span></li>
+  </ol>
+  <p style="margin-top:12px">ダウンロードが終わると、1台目とまったく同じフォルダができます。<span class="os-mac">①〜⑥のファイルもそのまま入っています。</span><span class="os-win">「Windows用」フォルダの中に①〜⑥が入っています。</span></p>
+</div>
+
+<div class="warn">
+  <p><b>2台以上で使うときの、たった1つのルール</b></p>
+  <p>編集を始める前に、必ず GitHub Desktop で <span class="ui">Fetch origin</span> → <span class="ui">Pull origin</span> を押して最新にしてください（ステップ1）。</p>
+  <p>また、<b>2人が同時に編集するのは避けてください。</b>「いまから触ります」と一声かけるルールにしておくと安全です。</p>
+</div>
+
+<h2>やってはいけないこと</h2>
+
+<table>
+  <thead><tr><th>これはNG</th><th>理由</th></tr></thead>
+  <tbody>
+    <tr><th>フォルダ名やファイル名を変える</th><td>ボタンが動かなくなります</td></tr>
+    <tr><th><code>dist</code> フォルダの中を直接直す</th><td>自動で作り直されるため、次の保存で消えます</td></tr>
+    <tr><th><code>.git</code> フォルダを消す</th><td>GitHubとのつながりが切れます</td></tr>
+    <tr><th>2人が同時に編集する</th><td>片方の変更が消えることがあります</td></tr>
+    <tr><th>フォルダを別の場所に移動する</th><td>GitHub Desktop が見失います（移動したら再度 Add してください）</td></tr>
+  </tbody>
+</table>
+
+<h2>困ったとき</h2>
+
+<dl class="faq">
+  <dt>ダブルクリックしても何も起こらない</dt>
+  <dd class="os-mac">右クリック →「開く」を選び、確認画面でもう一度「開く」を押してください。Macの安全機能によるものです（初回だけ）。</dd>
+  <dd class="os-win">「WindowsによってPCが保護されました」と青い画面が出ていませんか。<span class="ui">詳細情報</span> → <span class="ui">実行</span> の順に押してください。</dd>
+
+  <dt class="os-win">黒い画面に「Python が見つかりませんでした」と出た</dt>
+  <dd class="os-win">画面に出ている手順どおり、Microsoft Store で「Python 3」をインストールしてください。5分ほどで終わります。終わったら、もう一度ダブルクリックします。</dd>
+
+  <dt>「点検で問題が見つかりました」と出て送信できない</dt>
+  <dd>壊れたものが公開されないよう、わざと止めています。黒い画面に何が問題か表示されているので、その文章をコピーして Claude Code に貼り付けてください。</dd>
+
+  <dt>「送信できませんでした」と出た</dt>
+  <dd>GitHub Desktop を開いて、上の <span class="ui">Push origin</span> を押してみてください。それでもだめなら、一度 <span class="ui">Fetch origin</span> → <span class="ui">Pull origin</span> をしてから、もう一度お試しください。</dd>
+
+  <dt>送信したのに、ホームページが変わらない</dt>
+  <dd>GitHubのサイトで <span class="ui">Actions</span> タブを開いてください。黄色い丸●なら作業中です（2〜3分待ちます）。<b>緑のチェック✓</b>なら完了しているので、ブラウザを再読み込み（<span class="os-mac">⌘+R</span><span class="os-win">Ctrl+F5</span>）してください。赤い×なら Claude Code にご相談ください。</dd>
+
+  <dt>「Conflict」と出た</dt>
+  <dd>2人が同じ場所を同時に直したときに出ます。<b>自分で直そうとせず</b>、そのまま Claude Code に「GitHub Desktop で Conflict と出た」と伝えてください。</dd>
+
+  <dt>まちがえて公開してしまった</dt>
+  <dd>GitHub Desktop の <span class="ui">History</span> タブを開き、戻したい記録を右クリック → <span class="ui">Revert changes in commit</span> → 上の <span class="ui">Push origin</span>。1〜2分で元に戻ります。</dd>
+
+  <dt>黒い画面が閉じられない</dt>
+  <dd>ウィンドウの<span class="os-mac">左上の赤い●</span><span class="os-win">右上の ×</span>を押せば閉じられます。編集画面を開いている最中に閉じると編集画面も終了しますが、保存済みの内容は消えません。</dd>
+</dl>
+
+<h2>印刷して手元に置く用</h2>
+
+<div class="checklist">
+  <h3>更新のときのチェックリスト</h3>
+  <p class="lead">上から順に、□にチェックを入れながら進めてください。</p>
+  <ol>
+    <li><b>GitHub Desktop で Fetch origin → Pull origin</b><span>他のパソコンでも編集している場合のみ。1台だけなら飛ばしてOK</span></li>
+    <li><b><span class="os-mac">① 編集をはじめる.command</span><span class="os-win">Windows用 → ① 編集をはじめる.bat</span> をダブルクリック</b><span>黒い画面は閉じずにそのまま</span></li>
+    <li><b>編集画面で直して「保存する」を押した</b><span>押し忘れると反映されません</span></li>
+    <li><b>「サイトを見る」で確認した</b><span>おかしければ戻って直す</span></li>
+    <li><b>ブラウザと黒い画面を閉じた</b><span></span></li>
+    <li><b><span class="os-mac">⑥ 変更をGitHubに送る.command</span><span class="os-win">Windows用 → ⑥ 変更をGitHubに送る.bat</span> をダブルクリック</b><span>「✅ 送信しました」と出れば成功</span></li>
+    <li><b>1〜2分待って、ホームページを見て確認した</b><span>https://hiraigivemake-sketch.github.io/</span></li>
+  </ol>
+</div>
+
+<h2>月に1回やること</h2>
+
+<table>
+  <tbody>
+    <tr><th><span class="os-mac">③ 点検する.command</span><span class="os-win">③ 点検する.bat</span></th>
+        <td>リンク切れや、表示されない写真がないかを自動で調べます。「✅ 問題は見つかりませんでした」と出れば安心です。</td></tr>
+    <tr><th><span class="os-mac">④ バックアップを取る.command</span><span class="os-win">④ バックアップを取る.bat</span></th>
+        <td>その時点の内容をまるごと保存します。GitHubにも記録は残りますが、念のための二重の備えです。</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  クリケア訪問看護ステーション ホームページ更新マニュアル<br>
+  ホームページのアドレス：https://hiraigivemake-sketch.github.io/　／　フォルダの場所：デスクトップ ＞ kuricare-site<br>
+  はじめての設定については「GitHub公開の手順」、編集画面の詳しい使い方については「使い方ガイド」をご覧ください。
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var body = document.body;
+  var mac = document.getElementById("btnMac");
+  var win = document.getElementById("btnWin");
+  function setOS(os) {
+    body.setAttribute("data-os", os);
+    mac.setAttribute("aria-pressed", String(os === "mac"));
+    win.setAttribute("aria-pressed", String(os === "win"));
+    try { localStorage.setItem("kuricare-os", os); } catch (e) {}
+  }
+  mac.addEventListener("click", function () { setOS("mac"); });
+  win.addEventListener("click", function () { setOS("win"); });
+  var saved = null;
+  try { saved = localStorage.getItem("kuricare-os"); } catch (e) {}
+  setOS(saved || (/Win/i.test(navigator.platform || navigator.userAgent) ? "win" : "mac"));
+})();
+</script>

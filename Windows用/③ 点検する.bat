@@ -8,6 +8,9 @@ if errorlevel 1 goto :end
 %PY% build.py
 echo.
 %PY% tools\check.py
+echo.
+echo ======================================
+%PY% tools\check_mobile.py
 :end
 echo.
 echo --------------------------------------

@@ -38,7 +38,7 @@
     </div>
     <table class="info-table">
       {{# page.info.rows }}
-      <tr><th>{{ key }}</th><td>{{{ value_html }}}</td></tr>
+      <tr><th>{{ key }}</th><td>{{# is_tel }}<a class="tel-link" href="tel:{{ tel_href }}">{{ value }}</a>{{/ is_tel }}{{^ is_tel }}{{{ value_html }}}{{/ is_tel }}</td></tr>
       {{/ page.info.rows }}
     </table>
   </div>

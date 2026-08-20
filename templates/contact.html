@@ -30,10 +30,10 @@
         {{/ is_select }}
 
         {{# is_radio }}
-        <div style="display:grid;gap:10px;margin-top:4px">
+        <div style="display:grid;gap:4px;margin-top:4px">
           {{# options }}
-          <label style="display:flex;gap:10px;align-items:center">
-            <input type="radio" name="{{ entry_name }}" value="{{ . }}" required> <span>{{ . }}</span>
+          <label class="radio-option">
+            <input type="radio" name="{{ entry_name }}" value="{{ . }}" required><span>{{ . }}</span>
           </label>
           {{/ options }}
         </div>
@@ -44,7 +44,7 @@
       {{/ page.fields }}
 
       <p style="text-align:center">
-        <a href="/privacypolicy/" style="color:var(--c-orange);text-decoration:underline">プライバシーポリシー</a>{{ page.consent }}
+        <a class="consent-link" href="/privacypolicy/">プライバシーポリシー</a>{{ page.consent }}
       </p>
       <div class="form__submit">
         <button class="btn btn--fill btn--wide" type="submit">{{ page.submit }}</button>

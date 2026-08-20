@@ -795,3 +795,133 @@ body.is-menu-open { overflow: hidden; }
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .job-card { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ==========================================================================
+   スマートフォン・タブレット向けの操作性（タップしやすさ）
+   指で押す部分は、押しやすい大きさを確保します。
+   ========================================================================== */
+
+/* ハンバーガーボタン */
+.header__menu-btn {
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+/* フッターのメニュー：指で押せる高さにする */
+.footer__nav a {
+  display: inline-block;
+  padding-block: 10px;
+}
+@media screen and (max-width: 840px) {
+  .footer__nav div { gap: 8px 20px; }
+}
+
+/* 本文中のリンク：見た目を変えずに、上下の当たり判定だけ広げる
+   （インライン要素の上下 padding は行の高さに影響しません） */
+.prose a,
+.article__body a,
+.lead a,
+.card-grid a.post-card { padding-block: 6px; }
+
+/* サイトマップのリンク一覧 */
+.link-list li + li { margin-top: 4px; }
+.link-list a {
+  display: inline-block;
+  padding: 11px 4px;
+  font-weight: 700;
+}
+
+/* アコーディオンの開閉ボタン */
+.voices summary { padding-block: 11px; }
+.faq summary { min-height: 56px; align-items: center; }
+
+/* ラジオボタン・チェックボックス */
+.form input[type="radio"],
+.form input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--c-orange);
+  flex: none;
+}
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.radio-option:hover { background: var(--c-bg); }
+
+/* 電話番号は、スマホでタップすると発信できるようにする */
+.tel-link { color: inherit; text-decoration: none; }
+@media (hover: none) and (pointer: coarse) {
+  .tel-link {
+    color: var(--c-orange);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding-block: 8px;
+  }
+}
+
+/* 文字サイズ：小さな画面でも読みやすさを確保 */
+@media screen and (max-width: 540px) {
+  body { font-size: 15px; }
+  .post-card__title { font-size: 14.5px; line-height: 1.7; }
+  .footer__nav { font-size: 14px; }
+  .footer__copy { font-size: 12.5px; }
+}
+
+/* 横に長い表・コード類は、その中だけ横スクロールさせる */
+.prose table,
+.article__body table { display: block; overflow-x: auto; }
+
+/* iOS でフォーム入力時に画面が拡大されないよう、16px 以上を確保 */
+@media screen and (max-width: 540px) {
+  .form input[type="text"],
+  .form input[type="email"],
+  .form input[type="tel"],
+  .form select,
+  .form textarea { font-size: 16px; }
+}
+
+/* 画面を横向きにしたときも余白が破綻しないように */
+@media screen and (max-width: 900px) and (orientation: landscape) {
+  .hero { padding-top: 24px; }
+}
+
+/* ---- タブレット（横向き）でヘッダーのメニューを指で押しやすく ---- */
+.header__link {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-height: 44px;
+}
+.header__icon,
+.footer__social a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+.footer__social { gap: 8px; margin-left: -6px; }
+.footer__copy { font-size: 13px; }
+
+/* 電話番号は端末を問わずタップしやすくしておく */
+.tel-link { padding-block: 10px; display: inline-block; }
+
+/* 同意文の中のリンクも、指で押しやすくする */
+.consent-link {
+  display: inline-block;
+  padding: 11px 4px;
+  color: var(--c-orange);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 700;
+}

@@ -291,6 +291,13 @@ def enrich(node):
         if isinstance(out.get(key), str) and key + "_html" not in out:
             out[key + "_html"] = esc(out[key])
 
+    # 会社情報の表で、電話番号の行はタップで発信できるようにする
+    if out.get("key") in ("電話番号", "TEL", "tel") and isinstance(out.get("value"), str):
+        digits = re.sub(r"[^0-9+]", "", out["value"])
+        if len(digits) >= 10:
+            out["is_tel"] = True
+            out["tel_href"] = digits
+
     # フォーム項目のフラグと送信先フィールド名
     if "key" in out and "label" in out and "type" in out:
         kind = out["type"]
