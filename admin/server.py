@@ -51,6 +51,19 @@ def esc(v) -> str:
     return html.escape("" if v is None else str(v))
 
 
+# 「ページ」ではないが同じフォームで編集できるファイル
+SPECIAL_PAGES = {
+    "_site": (lambda: CONTENT / "site.json", "サイト全体の設定"),
+    "_instagram": (lambda: CONTENT / "instagram.json", "インスタグラム投稿"),
+}
+
+
+def page_path(name: str):
+    if name in SPECIAL_PAGES:
+        return SPECIAL_PAGES[name][0]()
+    return CONTENT / "pages" / f"{name}.json"
+
+
 # ---------------------------------------------- HTML を「やさしい表記」に変換
 # 元データは <span class="accent">…</span> と <br> しか使っていないので、
 # 編集画面では [[…]] と改行で書けるようにする。
@@ -102,6 +115,7 @@ def shell(title: str, body: str, active: str = "") -> bytes:
   <div class="sidebar__group">
     <p class="sidebar__title">素材・設定</p>
     {item('/images', '画像ライブラリ', 'images')}
+    {item('/page/_instagram', 'インスタグラム投稿', 'page:_instagram')}
     {item('/page/_site', 'サイト全体の設定', 'page:_site')}
   </div>
   <div class="sidebar__group">
@@ -445,9 +459,9 @@ def view_home() -> str:
 
 
 def view_page(name: str) -> str:
-    path = (CONTENT / "site.json") if name == "_site" else (CONTENT / "pages" / f"{name}.json")
+    path = page_path(name)
     data = json.loads(path.read_text(encoding="utf-8"))
-    title = "サイト全体の設定" if name == "_site" else data.get("title", name)
+    title = SPECIAL_PAGES[name][1] if name in SPECIAL_PAGES else data.get("title", name)
     note = data.get("_comment", "")
     return (
         f'<h1 class="page-title">{esc(title)}</h1>'
@@ -731,7 +745,7 @@ class Handler(BaseHTTPRequestHandler):
             # --- ページ保存 -------------------------------------------
             if p.startswith("/api/page/"):
                 name = p[len("/api/page/"):]
-                path = (CONTENT / "site.json") if name == "_site" else (CONTENT / "pages" / f"{name}.json")
+                path = page_path(name)
                 original = json.loads(path.read_text(encoding="utf-8"))
                 posted = restore_html(self.body_json())
                 merged = dict(original)

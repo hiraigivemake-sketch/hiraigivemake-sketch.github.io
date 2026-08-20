@@ -359,6 +359,24 @@ body.is-menu-open { overflow: hidden; }
 
 .center-action { display: flex; justify-content: center; margin-top: 48px; }
 
+/* ------------------------------------------------------- インスタグラム欄 */
+.ig-card { display: flex; flex-direction: column; gap: 12px; }
+.ig-card__thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--c-bg);
+}
+.ig-card__caption {
+  font-size: 14px;
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ------------------------------------------------------------ 記事本文 */
 .article { max-width: 800px; margin-inline: auto; }
 .article__header { text-align: center; }
