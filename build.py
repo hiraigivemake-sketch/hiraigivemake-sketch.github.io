@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -488,6 +489,15 @@ def build() -> dict:
 
     site["build_time"] = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     site["year"] = datetime.now(JST).year
+
+    # デザインファイル（CSS・JS）の中身から短い番号を作り、読み込み先に付ける。
+    # これがないと、更新してもブラウザが古いデザインを覚えたままになることがある。
+    fingerprint = hashlib.sha1()
+    for rel in ("css/style.css", "js/main.js"):
+        f = ASSETS / rel
+        if f.exists():
+            fingerprint.update(f.read_bytes())
+    site["asset_version"] = fingerprint.hexdigest()[:8]
 
     def base_ctx(page: dict, extra: dict | None = None) -> dict:
         ctx = {
