@@ -26,13 +26,7 @@
     "label": "スタッフ紹介",
     "title_en": "Staff",
     "text": "地域に根ざした訪問看護に携わっている、信頼できるスタッフたちをご紹介します。",
-    "photos": [
-      "/assets/images/s-1024x768_v-fs_webp_1ac34bf9-3f42-47b8-9b97-c63d7cbade4a_small.webp",
-      "/assets/images/s-1024x768_v-fs_webp_b7659bcd-159e-41b5-9bf0-b8527d65578e_small.webp",
-      "/assets/images/s-1024x768_v-fs_webp_b9197875-39f8-4e25-8fc6-4089d48ad4e8_small.webp",
-      "/assets/images/s-1024x768_v-fs_webp_83ebbea7-ffb9-432c-85c8-30492a132f74_small.webp",
-      "/assets/images/s-1024x768_v-fs_webp_2dddc43f-7123-418b-b1b0-a060b8be5d44_small.webp"
-    ]
+    "_note": "トップに並ぶ写真は「スタッフ紹介」ページの内容が自動で使われます。人の追加や写真の差し替えはスタッフ紹介ページで行ってください。"
   },
   "recruit": {
     "label": "採用情報",

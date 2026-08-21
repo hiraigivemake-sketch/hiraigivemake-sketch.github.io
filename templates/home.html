@@ -50,7 +50,12 @@
     </div>
     <p class="lead">{{ page.staff.text }}</p>
     <div class="staff-strip">
-      {{# page.staff.photos }}<img src="{{ . }}" alt="" loading="lazy">{{/ page.staff.photos }}
+      {{# staff_members }}
+      <a href="/staff/" aria-label="{{ name }} の紹介を見る">
+        <img src="{{ photo }}" alt="{{ name }}" loading="lazy">
+        <figcaption>{{ name }}</figcaption>
+      </a>
+      {{/ staff_members }}
     </div>
     <div class="center-action">
       <a class="btn" href="/staff/">詳しく見る {{> arrow }}</a>

@@ -67,6 +67,7 @@ SECTION_LABELS = {
 
 # ひとつひとつの入力欄の名前
 FIELD_LABELS = {
+    "_note": "ご案内",
     "show_blog": "ブログ欄を表示する",
     "show_instagram": "インスタグラム欄を表示する",
     "instagram_first": "インスタグラムをブログより上に置く",

@@ -303,12 +303,32 @@ body.is-menu-open { overflow: hidden; }
 
 /* ------------------------------------------------------------ スタッフ */
 .staff-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 24px;
   margin-top: 48px;
 }
-.staff-strip img { width: 100%; aspect-ratio: 1 / 1.28; object-fit: cover; border-radius: 8px; }
+.staff-strip a {
+  width: calc((100% - 96px) / 5);   /* 1行に5人。人数が増えたら折り返して中央に並びます */
+  min-width: 132px;
+}
+.staff-strip img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: center 28%;
+  border-radius: 8px;
+  background: var(--c-bg);
+  display: block;
+}
+.staff-strip figcaption {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-brown);
+}
 
 .staff-list { display: flex; flex-direction: column; gap: 64px; margin-top: 64px; }
 .staff-card {
@@ -605,7 +625,7 @@ body.is-menu-open { overflow: hidden; }
   .feature--reverse .feature__media { order: 0; }
   .feature__media { order: -1; }
 
-  .staff-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .staff-strip a { width: calc((100% - 48px) / 3); }   /* タブレットは1行に3人 */
   .staff-card { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; }
   .staff-card:nth-child(even) .staff-card__photo { order: 0; }
 
@@ -638,7 +658,8 @@ body.is-menu-open { overflow: hidden; }
   .hero__actions .btn { flex: 1; min-width: 0; padding-inline: 12px; font-size: 14px; }
   .notice { font-size: 18px; padding: 24px 16px; }
 
-  .staff-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .staff-strip { gap: 12px; }
+  .staff-strip a { width: calc((100% - 12px) / 2); min-width: 0; }   /* スマホは1行に2人 */
   .card-grid, .card-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .post-card__title { font-size: 14px; }
 
@@ -663,33 +684,52 @@ body.is-menu-open { overflow: hidden; }
   body { padding-top: 0; }
 }
 
-/* ------------------------------------------------------------ 写真が重なるカード
-   サービス内容・スタッフ紹介で使う、写真がカード枠に少し重なるレイアウト。 */
+/* ------------------------------------------------------------ 写真つきカード
+   サービス内容・スタッフ紹介で使う、写真がカード枠から少しはみ出すレイアウト。
+   写真は本物の「列」として置くので、どんな縦横比の写真でもカードが高さを合わせ、
+   次のカードと重なることがありません。 */
 .media-card {
-  position: relative;
+  display: grid;
+  grid-template-columns: 350px minmax(0, 1fr);
+  gap: 0 40px;
+  align-items: center;
   margin-left: 30px;
-  padding: 36px 32px 36px 420px;
+  padding: 36px 32px;
   border: 1px solid var(--c-orange);
   border-radius: 20px;
   background: #fdf7f0;
 }
 .media-card + .media-card { margin-top: 72px; }
+
 .media-card__photo {
-  position: absolute;
-  left: -30px;
-  top: 50%;
-  transform: translateY(-50%);
+  grid-column: 1;
+  grid-row: 1 / span 2;
   width: 410px;
-  max-width: 42%;
+  margin-left: -60px;   /* カードの外へ少しはみ出させる */
 }
 .media-card__photo img {
   width: 100%;
+  aspect-ratio: 4 / 3;          /* 写真の縦横比をそろえる */
+  object-fit: cover;
+  object-position: center 28%;  /* 顔が切れにくい位置 */
   border: 1px solid var(--c-orange);
   border-radius: 12px;
   display: block;
+  background: var(--c-bg);
 }
-.media-card__title { font-size: 24px; font-weight: 700; line-height: 1.5; color: var(--c-orange); }
+
+.media-card__title {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--c-orange);
+}
 .media-card__text {
+  grid-column: 2;
+  grid-row: 2;
   margin-top: 20px;
   padding: 24px;
   border-radius: 12px;
@@ -698,29 +738,45 @@ body.is-menu-open { overflow: hidden; }
 }
 .media-card__text p + p { margin-top: 1em; }
 
+/* 写真を右側に置くパターン（サービス内容ページ） */
 .media-card--reverse {
+  grid-template-columns: minmax(0, 1fr) 350px;
   margin-left: 0;
   margin-right: 30px;
-  padding: 36px 420px 36px 32px;
 }
-.media-card--reverse .media-card__photo { left: auto; right: -30px; }
+.media-card--reverse .media-card__photo {
+  grid-column: 2;
+  margin-left: 0;
+  margin-right: -60px;
+}
+.media-card--reverse .media-card__title,
+.media-card--reverse .media-card__text { grid-column: 1; }
 
 @media screen and (max-width: 840px) {
   .media-card,
   .media-card--reverse {
+    grid-template-columns: minmax(0, 1fr);
     margin: 0;
     padding: 24px;
+    gap: 0;
   }
   .media-card + .media-card { margin-top: 40px; }
   .media-card__photo,
   .media-card--reverse .media-card__photo {
-    position: static;
-    transform: none;
+    grid-column: 1;
+    grid-row: auto;
     width: 100%;
-    max-width: 100%;
-    margin-bottom: 20px;
+    margin: 0 0 20px;
   }
+  .media-card__title,
+  .media-card__text,
+  .media-card--reverse .media-card__title,
+  .media-card--reverse .media-card__text { grid-column: 1; grid-row: auto; }
   .media-card__text { padding: 18px; }
+}
+
+@media screen and (max-width: 540px) {
+  .media-card__title { font-size: 20px; }
 }
 
 /* ------------------------------------------------------------ よくある質問 */

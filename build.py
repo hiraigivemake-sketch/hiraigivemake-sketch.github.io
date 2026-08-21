@@ -496,6 +496,8 @@ def build() -> dict:
             "blog": blog,
             "recruit": recruit,
             "blog_latest": blog[: site.get("blog_home_count", 4)],
+            # トップページのスタッフ欄は、スタッフ紹介ページの内容をそのまま使う
+            "staff_members": (pages.get("staff") or {}).get("members", []),
             "show_blog": bottom.get("show_blog", True),
             "instagram_top": ig_block if (show_ig and ig_first) else None,
             "instagram_bottom": ig_block if (show_ig and not ig_first) else None,
