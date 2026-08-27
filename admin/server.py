@@ -54,7 +54,6 @@ def esc(v) -> str:
 # 「ページ」ではないが同じフォームで編集できるファイル
 SPECIAL_PAGES = {
     "_site": (lambda: CONTENT / "site.json", "サイト全体の設定"),
-    "_instagram": (lambda: CONTENT / "instagram.json", "インスタグラム投稿"),
 }
 
 
@@ -115,7 +114,6 @@ def shell(title: str, body: str, active: str = "") -> bytes:
   <div class="sidebar__group">
     <p class="sidebar__title">素材・設定</p>
     {item('/images', '画像ライブラリ', 'images')}
-    {item('/page/_instagram', 'インスタグラム投稿', 'page:_instagram')}
     {item('/page/_site', 'サイト全体の設定', 'page:_site')}
   </div>
   <div class="sidebar__group">
