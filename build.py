@@ -345,12 +345,24 @@ def parse_front_matter(text: str) -> tuple[dict, str]:
     return meta, text[end + 4 :].lstrip("\n")
 
 
-def load_posts(folder: Path, kind: str) -> list[dict]:
+def today_jst() -> str:
+    return datetime.now(JST).strftime("%Y-%m-%d")
+
+
+def is_scheduled(date: str) -> bool:
+    """日付が未来なら「予約投稿」。その日が来るまで公開しない。"""
+    return bool(date) and str(date)[:10] > today_jst()
+
+
+def load_posts(folder: Path, kind: str, include_future: bool = False) -> list[dict]:
     posts = []
     for path in sorted(folder.glob("*.md")):
         meta, body = parse_front_matter(path.read_text(encoding="utf-8"))
         slug = meta.get("slug") or path.stem
         date = meta.get("date", "")
+        # 公開予定日がまだ来ていない記事は、公開サイトには出さない
+        if is_scheduled(date) and not include_future:
+            continue
         posts.append(
             {
                 **meta,
@@ -359,6 +371,7 @@ def load_posts(folder: Path, kind: str) -> list[dict]:
                 "url": f"/{kind}/{slug}/",
                 "date": date,
                 "date_display": format_date(date),
+                "is_scheduled": is_scheduled(date),
                 "body_md": body,
                 "body_html": markdown(body),
                 "source_file": str(path.relative_to(ROOT)),
@@ -459,7 +472,9 @@ def sync_assets() -> None:
             remove_path(dest)
 
 
-def build() -> dict:
+def build(include_future: bool = False) -> dict:
+    """include_future=True のときは、公開予定日が未来の記事もあわせて生成する
+    （手元でのプレビュー用。公開サイトの生成では使わない）。"""
     site = read_json(CONTENT / "site.json")
     pages = {p.stem: enrich(read_json(p)) for p in sorted((CONTENT / "pages").glob("*.json"))}
 
@@ -468,8 +483,8 @@ def build() -> dict:
         entries = (page.get("google_form") or {}).get("entries") or {}
         for field in page.get("fields") or []:
             field["entry_name"] = entries.get(field["key"]) or field["key"]
-    blog = load_posts(CONTENT / "blog", "blog")
-    recruit = load_posts(CONTENT / "recruit", "recruit")
+    blog = load_posts(CONTENT / "blog", "blog", include_future)
+    recruit = load_posts(CONTENT / "recruit", "recruit", include_future)
 
     # --- インスタグラム欄 -------------------------------------------------
     # 表示のオン・オフは site.json の home_bottom、投稿の中身は instagram.json。

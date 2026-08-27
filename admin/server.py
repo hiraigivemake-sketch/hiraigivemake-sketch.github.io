@@ -407,7 +407,8 @@ def write_post(path: Path, meta: dict, body: str) -> None:
 
 def run_build():
     try:
-        s = builder.build()
+        # 手元のプレビューでは、公開予定の記事もあわせて見えるようにする
+        s = builder.build(include_future=True)
         return True, f"保存しました（ページ{s['pages']}件／ブログ{s['blog']}件／採用{s['recruit']}件）"
     except Exception as e:
         return False, f"保存はできましたが、サイト生成でエラーが出ました: {e}"
@@ -476,18 +477,27 @@ def view_list(kind: str) -> str:
         meta, _ = read_post(p)
         thumb = meta.get("thumbnail", "")
         img = f'<img class="list__thumb" src="/asset{esc(thumb)}" alt="">' if thumb else '<div class="list__thumb"></div>'
+        waiting = builder.is_scheduled(meta.get("date", ""))
+        badge = '<span class="badge badge--wait">公開予定</span>' if waiting else ""
         rows.append(f"""
 <div class="list__row" data-search="{esc(meta.get('title',''))} {esc(meta.get('date',''))}">
   {img}
   <div class="list__main">
-    <div class="list__title">{esc(meta.get("title", p.stem))}</div>
+    <div class="list__title">{esc(meta.get("title", p.stem))}{badge}</div>
     <div class="list__meta">{esc(meta.get("date", ""))}</div>
   </div>
   <a class="btn btn--sm" href="/post/{kind}/{urllib.parse.quote(p.name)}">編集</a>
 </div>""")
+    waiting_count = sum(
+        1 for q in post_files(kind) if builder.is_scheduled(read_post(q)[0].get("date", ""))
+    )
+    waiting_note = (
+        f"　うち{waiting_count}件は公開予定です（その日が来ると自動で公開されます）。"
+        if waiting_count else ""
+    )
     return f"""
 <h1 class="page-title">{heading}</h1>
-<p class="page-note">{len(rows)}件あります。新しい順に並んでいます。</p>
+<p class="page-note">{len(rows)}件あります。新しい順に並んでいます。{waiting_note}</p>
 <div class="toolbar">
   <a class="btn btn--primary" href="/new/{kind}">＋ 新しく追加</a>
   <input type="search" id="listFilter" placeholder="タイトルで探す">
@@ -496,7 +506,7 @@ def view_list(kind: str) -> str:
 
 
 META_LABELS = {
-    "title": "タイトル", "date": "日付（例 2026-08-20）", "thumbnail": "サムネイル画像",
+    "title": "タイトル", "date": "公開日（未来の日付にすると、その日まで公開されません）", "thumbnail": "サムネイル画像",
     "slug": "URLの文字（変えると記事のアドレスが変わります）", "description": "検索結果に出る説明文",
     "office": "事業所", "job_type": "職種", "employment": "雇用形態",
     "salary_summary": "給与（概要）", "location": "勤務地",
