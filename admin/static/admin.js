@@ -31,6 +31,11 @@
   var igToken = document.getElementById("igToken");
   var igSave = document.getElementById("igSave");
   var igError = document.getElementById("igError");
+  var pickUrl = document.getElementById("pickUrl");
+  var urlPanel = document.getElementById("urlPanel");
+  var urlInput = document.getElementById("urlInput");
+  var urlGo = document.getElementById("urlGo");
+  var urlError = document.getElementById("urlError");
   var allImages = [];
   var onPick = null;
 
@@ -44,6 +49,8 @@
   /* ---------------------------------------- 画像ライブラリ表示 */
   function showLibrary() {
     igSetup.hidden = true;
+    urlPanel.hidden = true;
+    pickUrl.hidden = false;
     pickGrid.hidden = false;
     pickSearch.parentNode.hidden = false;
     pickIg.hidden = false;
@@ -57,6 +64,8 @@
   /* ---------------------------------------- インスタグラム表示 */
   function showInstagram() {
     igSetup.hidden = true;
+    urlPanel.hidden = true;
+    pickUrl.hidden = true;
     pickGrid.hidden = false;
     pickSearch.parentNode.hidden = true;
     pickIg.hidden = true;
@@ -107,6 +116,7 @@
   /* ---------------------------------------- カギの登録 */
   function showIgSetup(message) {
     pickGrid.hidden = true;
+    urlPanel.hidden = true;
     igSetup.hidden = false;
     igError.textContent = message || "";
     igToken.value = "";
@@ -133,6 +143,50 @@
         });
     });
   }
+
+  /* ---------------------------------------- URLから取り込む */
+  function showUrlPanel() {
+    igSetup.hidden = true;
+    urlPanel.hidden = false;
+    pickGrid.hidden = true;
+    pickSearch.parentNode.hidden = true;
+    pickIg.hidden = true;
+    pickUrl.hidden = true;
+    pickLib.hidden = false;
+    urlInput.value = "";
+    urlError.textContent = "";
+    urlInput.focus();
+  }
+
+  function importFromUrl() {
+    var v = urlInput.value.trim();
+    if (!v) { urlError.textContent = "アドレスを貼り付けてください。"; return; }
+    urlGo.disabled = true;
+    urlError.textContent = "取り込んでいます…";
+    fetch("/api/fetch-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: v })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        urlGo.disabled = false;
+        if (!d.ok) { urlError.textContent = d.error || "取り込めませんでした。"; return; }
+        allImages = [];
+        if (onPick) onPick(d.path);
+        closePicker();
+      })
+      .catch(function () {
+        urlGo.disabled = false;
+        urlError.textContent = "取り込めませんでした。";
+      });
+  }
+
+  if (urlGo) urlGo.addEventListener("click", importFromUrl);
+  if (urlInput) urlInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); importFromUrl(); }
+  });
+  if (pickUrl) pickUrl.addEventListener("click", showUrlPanel);
 
   if (pickIg) pickIg.addEventListener("click", showInstagram);
   if (pickLib) pickLib.addEventListener("click", showLibrary);

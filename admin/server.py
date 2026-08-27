@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import urllib.parse
+import urllib.request
 import webbrowser
 from datetime import datetime, timedelta, timezone
 import socket
@@ -51,6 +52,66 @@ IMAGE_EXT = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".svg", ".avif"}
 
 def esc(v) -> str:
     return html.escape("" if v is None else str(v))
+
+
+# ------------------------------------------------- 画像のURLから取り込む
+MAX_IMAGE_BYTES = 20 * 1024 * 1024        # 20MB まで
+TYPE_EXT = {
+    "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png",
+    "image/webp": ".webp", "image/gif": ".gif", "image/avif": ".avif",
+    "image/svg+xml": ".svg",
+}
+
+
+def fetch_image_url(url: str) -> str:
+    """画像のアドレスから取り込んで、サイト内のパスを返す。"""
+    url = str(url or "").strip()
+    if not re.match(r"^https?://", url, re.I):
+        raise ValueError("https:// で始まる画像のアドレスを貼り付けてください。")
+
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) kuricare-site",
+        "Accept": "image/*,*/*;q=0.8",
+    })
+    with urllib.request.urlopen(req, timeout=60) as res:
+        ctype = (res.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        data = res.read(MAX_IMAGE_BYTES + 1)
+
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("画像が大きすぎます（20MB まで）。")
+    if len(data) < 100:
+        raise ValueError("中身が空でした。アドレスをご確認ください。")
+
+    ext = TYPE_EXT.get(ctype) or Path(urllib.parse.urlparse(url).path).suffix.lower()
+    if ext not in IMAGE_EXT:
+        raise ValueError(
+            "画像ではないようです。投稿ページのアドレスではなく、"
+            "写真そのもののアドレス（末尾が .jpg や .webp）を貼り付けてください。"
+        )
+
+    stem = re.sub(r"[^\w.\-]", "_", Path(urllib.parse.urlparse(url).path).stem)[:40] or "image"
+    dest = IMAGES / (stem + ext)
+    n = 2
+    while dest.exists() and dest.stat().st_size != len(data):
+        dest = IMAGES / f"{stem}-{n}{ext}"
+        n += 1
+    if not dest.exists():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+    return "/assets/images/" + dest.name
+
+
+def url_message(e: Exception) -> str:
+    if isinstance(e, ValueError):
+        return str(e)
+    code = getattr(e, "code", None)
+    if code == 404:
+        return "その画像は見つかりませんでした（404）。アドレスをご確認ください。"
+    if code in (401, 403):
+        return "取得を断られました（{}）。時間が経った画像のアドレスは、期限切れのことがあります。".format(code)
+    if code:
+        return "取り込めませんでした（HTTP {}：{}）".format(code, getattr(e, "reason", ""))
+    return f"取り込めませんでした（{type(e).__name__}）"
 
 
 # ------------------------------------------- インスタグラムから画像を取り込む
@@ -201,6 +262,7 @@ def shell(title: str, body: str, active: str = "") -> bytes:
         <input type="file" id="pickUpload" accept="image/*" multiple hidden>
       </label>
       <button class="btn" type="button" id="pickIg">インスタから選ぶ</button>
+      <button class="btn" type="button" id="pickUrl">URLから取り込む</button>
       <button class="btn" type="button" id="pickLib" hidden>画像ライブラリに戻る</button>
       <button class="btn btn--ghost" type="button" id="pickClose">閉じる</button>
     </div>
@@ -215,6 +277,14 @@ def shell(title: str, body: str, active: str = "") -> bytes:
         <p class="igsetup__note">このカギは、このパソコンの中だけに保存されます。<br>
           GitHub には送られません。</p>
         <p class="igsetup__error" id="igError"></p>
+      </div>
+      <div class="igsetup" id="urlPanel" hidden>
+        <p class="igsetup__lead">写真そのもののアドレスを貼り付けると、この画面に取り込みます。</p>
+        <input type="url" id="urlInput" placeholder="https://…….jpg" autocomplete="off">
+        <button class="btn btn--primary" type="button" id="urlGo">取り込む</button>
+        <p class="igsetup__note">画像を右クリック →「画像アドレスをコピー」で取れます。<br>
+          インスタの<strong>投稿ページのアドレスは使えません</strong>（末尾が .jpg や .webp のものが必要です）。</p>
+        <p class="igsetup__error" id="urlError"></p>
       </div>
     </div>
   </div>
@@ -910,6 +980,13 @@ class Handler(BaseHTTPRequestHandler):
                     ig_save_token("")
                     return self.send_json({"ok": False, "error": ig_message(e)})
                 return self.send_json({"ok": True})
+
+            if p == "/api/fetch-image":
+                try:
+                    return self.send_json({"ok": True,
+                                           "path": fetch_image_url(self.body_json().get("url", ""))})
+                except Exception as e:
+                    return self.send_json({"ok": False, "error": url_message(e)})
 
             if p == "/api/instagram/import":
                 try:
