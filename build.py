@@ -349,9 +349,25 @@ def today_jst() -> str:
     return datetime.now(JST).strftime("%Y-%m-%d")
 
 
-def is_scheduled(date: str) -> bool:
-    """日付が未来なら「予約投稿」。その日が来るまで公開しない。"""
-    return bool(date) and str(date)[:10] > today_jst()
+def clean_time(value) -> str:
+    """時刻を HH:MM にそろえる。空や書式違いは空文字にする。"""
+    m = re.match(r"^\s*(\d{1,2})\s*[:：]\s*(\d{1,2})", str(value or ""))
+    if not m:
+        return ""
+    h, mi = int(m.group(1)), int(m.group(2))
+    return f"{h:02d}:{mi:02d}" if 0 <= h <= 23 and 0 <= mi <= 59 else ""
+
+
+def publish_at(date, time="") -> str:
+    """並べ替えと公開判定に使う「日付＋時刻」。時刻なしは 00:00 として扱う。"""
+    return f"{str(date or '')[:10]} {clean_time(time) or '00:00'}"
+
+
+def is_scheduled(date, time="") -> bool:
+    """公開日時がまだ来ていなければ「予約投稿」。"""
+    if not date:
+        return False
+    return publish_at(date, time) > datetime.now(JST).strftime("%Y-%m-%d %H:%M")
 
 
 def load_posts(folder: Path, kind: str, include_future: bool = False) -> list[dict]:
@@ -360,8 +376,9 @@ def load_posts(folder: Path, kind: str, include_future: bool = False) -> list[di
         meta, body = parse_front_matter(path.read_text(encoding="utf-8"))
         slug = meta.get("slug") or path.stem
         date = meta.get("date", "")
-        # 公開予定日がまだ来ていない記事は、公開サイトには出さない
-        if is_scheduled(date) and not include_future:
+        time = clean_time(meta.get("time", ""))
+        # 公開日時がまだ来ていない記事は、公開サイトには出さない
+        if is_scheduled(date, time) and not include_future:
             continue
         posts.append(
             {
@@ -370,14 +387,16 @@ def load_posts(folder: Path, kind: str, include_future: bool = False) -> list[di
                 "slug": slug,
                 "url": f"/{kind}/{slug}/",
                 "date": date,
+                "time": time,
                 "date_display": format_date(date),
-                "is_scheduled": is_scheduled(date),
+                "is_scheduled": is_scheduled(date, time),
+                "publish_at": publish_at(date, time),
                 "body_md": body,
                 "body_html": markdown(body),
                 "source_file": str(path.relative_to(ROOT)),
             }
         )
-    posts.sort(key=lambda p: (p.get("date", ""), p["slug"]), reverse=True)
+    posts.sort(key=lambda p: (p.get("publish_at", ""), p["slug"]), reverse=True)
     return posts
 
 

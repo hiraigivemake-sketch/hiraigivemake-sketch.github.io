@@ -1,14 +1,16 @@
 # ---------------------------------------------------------------------------
-# 公開予定日が来たブログ・採用記事を、自動で公開します。
-# 記事の日付を未来にしておくと、その日の朝までホームページに出ません。
+# 公開日時が来たブログ・採用記事を、自動で公開します。
+# 記事の日付と時刻を未来にしておくと、その時刻までホームページに出ません。
+#
+# 15分ごとに確認しますが、公開時刻を迎えた記事が無いときは何もせず終わります。
 # 中身をさわる必要はありません。
 # ---------------------------------------------------------------------------
 name: 予約投稿を公開する
 
 on:
   schedule:
-    - cron: "0 21 * * *"      # 日本時間で毎朝6時ごろ
-  workflow_dispatch:          # 手動で実行したいとき用
+    - cron: "*/15 * * * *"    # 15分ごとに確認
+  workflow_dispatch:          # 手動ですぐ公開したいとき用
 
 permissions:
   contents: read
@@ -22,6 +24,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.due.outputs.publish }}
     steps:
       - name: ソースを取得
         uses: actions/checkout@v4
@@ -31,19 +35,28 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 公開時刻が来た記事が無ければ、ここで終わり（無駄な公開をしない）
+      - name: 公開する記事があるか確認
+        id: due
+        run: python3 tools/due_check.py
+
       - name: サイトを生成
+        if: steps.due.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
         run: python3 build.py
 
       - name: 点検（問題があればここで止まります）
+        if: steps.due.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
         run: python3 tools/check.py
 
       - name: 公開用に受け渡し
+        if: steps.due.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
     needs: build
+    if: needs.build.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

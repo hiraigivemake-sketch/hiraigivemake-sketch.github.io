@@ -559,7 +559,7 @@ def view_list(kind: str) -> str:
         meta, _ = read_post(p)
         thumb = meta.get("thumbnail", "")
         img = f'<img class="list__thumb" src="/asset{esc(thumb)}" alt="">' if thumb else '<div class="list__thumb"></div>'
-        waiting = builder.is_scheduled(meta.get("date", ""))
+        waiting = builder.is_scheduled(meta.get("date", ""), meta.get("time", ""))
         badge = '<span class="badge badge--wait">公開予定</span>' if waiting else ""
         rows.append(f"""
 <div class="list__row" data-search="{esc(meta.get('title',''))} {esc(meta.get('date',''))}">
@@ -571,7 +571,7 @@ def view_list(kind: str) -> str:
   <a class="btn btn--sm" href="/post/{kind}/{urllib.parse.quote(p.name)}">編集</a>
 </div>""")
     waiting_count = sum(
-        1 for q in post_files(kind) if builder.is_scheduled(read_post(q)[0].get("date", ""))
+        1 for q in post_files(kind) if builder.is_scheduled(read_post(q)[0].get("date", ""), read_post(q)[0].get("time", ""))
     )
     waiting_note = (
         f"　うち{waiting_count}件は公開予定です（その日が来ると自動で公開されます）。"
@@ -588,7 +588,8 @@ def view_list(kind: str) -> str:
 
 
 META_LABELS = {
-    "title": "タイトル", "date": "公開日（未来の日付にすると、その日まで公開されません）", "thumbnail": "サムネイル画像",
+    "title": "タイトル", "date": "公開日（未来の日付にすると、その日まで公開されません）",
+    "time": "公開時刻（15分ごとに確認し、その時刻を過ぎたら公開します）", "thumbnail": "サムネイル画像",
     "slug": "URLの文字（変えると記事のアドレスが変わります）", "description": "検索結果に出る説明文",
     "office": "事業所", "job_type": "職種", "employment": "雇用形態",
     "salary_summary": "給与（概要）", "location": "勤務地",
@@ -598,9 +599,10 @@ META_LABELS = {
 def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
     is_new = filename is None
     fields = []
-    order = ["title", "date", "thumbnail"] + [k for k in meta if k not in ("title", "date", "thumbnail")]
+    fixed = ("title", "date", "time", "thumbnail")
+    order = list(fixed) + [k for k in meta if k not in fixed]
     for key in order:
-        if key not in meta and key not in ("title", "date", "thumbnail"):
+        if key not in meta and key not in fixed:
             continue
         value = meta.get(key, "")
         label = META_LABELS.get(key, key)
@@ -621,6 +623,12 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
     </div>
   </div>
 </div>""")
+        elif key == "time":
+            fields.append(
+                f'<div class="field"><label class="field__label">{esc(label)}</label>'
+                f'<input type="time" data-path="meta.time" value="{esc(builder.clean_time(value))}">'
+                f'<p class="field__hint">空のままなら、その日の 0:00 に公開されます。</p></div>'
+            )
         elif key == "description":
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
@@ -683,9 +691,9 @@ def view_post(kind: str, filename: str) -> str:
 def view_new(kind: str) -> str:
     today = datetime.now(JST).strftime("%Y-%m-%d")
     if kind == "blog":
-        meta = {"title": "", "date": today, "thumbnail": "", "description": ""}
+        meta = {"title": "", "date": today, "time": "", "thumbnail": "", "description": ""}
     else:
-        meta = {"title": "", "date": today, "thumbnail": "", "office": "", "job_type": "",
+        meta = {"title": "", "date": today, "time": "", "thumbnail": "", "office": "", "job_type": "",
                 "employment": "", "salary_summary": "", "location": "", "description": ""}
     return post_form(kind, None, meta, "")
 
