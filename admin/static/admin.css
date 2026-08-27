@@ -445,3 +445,13 @@ pre.log {
   border: 1px solid #e0a463;
   color: #a55600;
 }
+
+/* インスタグラムのカギ登録 */
+.igsetup { padding: 32px 8px; max-width: 520px; margin: 0 auto; text-align: center; }
+.igsetup__lead { margin: 0 0 20px; line-height: 1.9; }
+.igsetup input {
+  width: 100%; padding: 10px 12px; margin-bottom: 12px;
+  border: 1px solid #d9cdbb; border-radius: 6px; font-size: 15px;
+}
+.igsetup__note { margin: 16px 0 0; font-size: 13px; color: #6e5a47; line-height: 1.8; }
+.igsetup__error { margin: 12px 0 0; font-size: 14px; color: #b03a24; min-height: 1.2em; }

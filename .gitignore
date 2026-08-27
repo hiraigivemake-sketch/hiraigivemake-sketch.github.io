@@ -6,3 +6,6 @@ assets/_trash/
 __pycache__/
 *.pyc
 .DS_Store
+
+# 認証情報（絶対に共有しない・自分のパソコンの中だけ）
+admin/.secrets.json

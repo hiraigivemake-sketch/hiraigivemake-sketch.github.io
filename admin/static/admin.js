@@ -25,6 +25,12 @@
   var pickGrid = document.getElementById("pickGrid");
   var pickSearch = document.getElementById("pickSearch");
   var pickUpload = document.getElementById("pickUpload");
+  var pickIg = document.getElementById("pickIg");
+  var pickLib = document.getElementById("pickLib");
+  var igSetup = document.getElementById("igSetup");
+  var igToken = document.getElementById("igToken");
+  var igSave = document.getElementById("igSave");
+  var igError = document.getElementById("igError");
   var allImages = [];
   var onPick = null;
 
@@ -32,11 +38,104 @@
     onPick = callback;
     modal.classList.add("is-open");
     pickSearch.value = "";
+    showLibrary();
+  }
+
+  /* ---------------------------------------- 画像ライブラリ表示 */
+  function showLibrary() {
+    igSetup.hidden = true;
+    pickGrid.hidden = false;
+    pickSearch.parentNode.hidden = false;
+    pickIg.hidden = false;
+    pickLib.hidden = true;
     loadImages().then(function () {
-      renderPick("");
+      renderPick(pickSearch.value);
       pickSearch.focus();
     });
   }
+
+  /* ---------------------------------------- インスタグラム表示 */
+  function showInstagram() {
+    igSetup.hidden = true;
+    pickGrid.hidden = false;
+    pickSearch.parentNode.hidden = true;
+    pickIg.hidden = true;
+    pickLib.hidden = false;
+    pickGrid.innerHTML = '<p style="color:#6e5a47">インスタグラムから読み込んでいます…</p>';
+
+    fetch("/api/instagram/media")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.configured) { showIgSetup(""); return; }
+        if (d.error) { pickGrid.innerHTML = '<p style="color:#b03a24">' + d.error + "</p>"; return; }
+        if (!d.items.length) { pickGrid.innerHTML = '<p style="color:#6e5a47">投稿が見つかりませんでした。</p>'; return; }
+        renderInstagram(d.items);
+      })
+      .catch(function () {
+        pickGrid.innerHTML = '<p style="color:#b03a24">読み込みに失敗しました。</p>';
+      });
+  }
+
+  function renderInstagram(items) {
+    pickGrid.innerHTML = "";
+    items.forEach(function (post) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML =
+        '<img src="' + post.thumb + '" alt="" loading="lazy">' +
+        "<span>" + (post.date || "") + (post.caption ? "　" + post.caption : "") + "</span>";
+      b.addEventListener("click", function () {
+        b.disabled = true;
+        b.querySelector("span").textContent = "取り込んでいます…";
+        fetch("/api/instagram/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: post.id })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d.ok) { alert(d.error || "取り込めませんでした"); b.disabled = false; return; }
+            allImages = [];
+            if (onPick) onPick(d.path);
+            closePicker();
+          });
+      });
+      pickGrid.appendChild(b);
+    });
+  }
+
+  /* ---------------------------------------- カギの登録 */
+  function showIgSetup(message) {
+    pickGrid.hidden = true;
+    igSetup.hidden = false;
+    igError.textContent = message || "";
+    igToken.value = "";
+    igToken.focus();
+  }
+
+  if (igSave) {
+    igSave.addEventListener("click", function () {
+      var v = igToken.value.trim();
+      if (!v) { igError.textContent = "カギを貼り付けてください。"; return; }
+      igSave.disabled = true;
+      igError.textContent = "確認しています…";
+      fetch("/api/instagram/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: v })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          igSave.disabled = false;
+          igToken.value = "";
+          if (!d.ok) { igError.textContent = d.error || "登録できませんでした。"; return; }
+          showInstagram();
+        });
+    });
+  }
+
+  if (pickIg) pickIg.addEventListener("click", showInstagram);
+  if (pickLib) pickLib.addEventListener("click", showLibrary);
   function closePicker() {
     modal.classList.remove("is-open");
     onPick = null;

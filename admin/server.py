@@ -41,14 +41,83 @@ JST = timezone(timedelta(hours=9))
 
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ADMIN))
+sys.path.insert(0, str(ROOT / "tools"))
 import build as builder  # noqa: E402
 import labels as L  # noqa: E402
+import fetch_instagram as ig  # noqa: E402
 
 IMAGE_EXT = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".svg", ".avif"}
 
 
 def esc(v) -> str:
     return html.escape("" if v is None else str(v))
+
+
+# ------------------------------------------- インスタグラムから画像を取り込む
+# アクセストークンは、このパソコンの中だけに保存します（.gitignore 済み）。
+SECRETS = ADMIN / ".secrets.json"
+IG_DIR = IMAGES / "instagram"
+
+
+def read_secrets() -> dict:
+    try:
+        return json.loads(SECRETS.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def ig_token() -> str:
+    return str(read_secrets().get("instagram_token") or "").strip()
+
+
+def ig_save_token(token: str) -> None:
+    data = read_secrets()
+    data["instagram_token"] = token.strip()
+    SECRETS.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def ig_get(path: str, **params) -> dict:
+    params["access_token"] = ig_token()
+    return ig.get_json("https://graph.instagram.com/" + path + "?" + urllib.parse.urlencode(params))
+
+
+def ig_recent(limit: int = 24) -> list:
+    """最近の投稿を、写真つきで一覧にする。"""
+    out = []
+    for post in (ig_get("me/media", fields=ig.FIELDS, limit=limit).get("data") or []):
+        src = ig.picture_of(post)
+        if not src:
+            continue
+        out.append({
+            "id": str(post.get("id", "")),
+            "thumb": src,
+            "caption": ig.tidy_caption(post.get("caption", "")),
+            "date": str(post.get("timestamp", ""))[:10],
+        })
+    return out
+
+
+def ig_message(e: Exception) -> str:
+    """API のエラーを、読んで分かる日本語にする。"""
+    text = str(e)
+    if "400" in text or "401" in text or "190" in text:
+        return "カギ（アクセストークン）が正しくないか、期限切れです。取り直して登録し直してください。"
+    if "timed out" in text.lower() or "urlopen" in text.lower():
+        return "インスタグラムに接続できませんでした。通信環境をご確認ください。"
+    return f"取得できませんでした（{type(e).__name__}）"
+
+
+def ig_import(media_id: str) -> str:
+    """指定した投稿の写真を取り込み、サイト内のパスを返す。"""
+    post = ig_get(str(media_id), fields=ig.FIELDS)
+    src = ig.picture_of(post)
+    if not src:
+        raise ValueError("この投稿から写真を取り出せませんでした")
+    name = re.sub(r"\W", "", str(post.get("id", "")))[:32] + ig.extension_of(src)
+    dest = IG_DIR / name
+    if not dest.exists() and not ig.download(src, dest):
+        raise ValueError("写真を取り込めませんでした")
+    return "/assets/images/instagram/" + name
 
 
 # 「ページ」ではないが同じフォームで編集できるファイル
@@ -131,10 +200,23 @@ def shell(title: str, body: str, active: str = "") -> bytes:
         パソコンからアップロード
         <input type="file" id="pickUpload" accept="image/*" multiple hidden>
       </label>
+      <button class="btn" type="button" id="pickIg">インスタから選ぶ</button>
+      <button class="btn" type="button" id="pickLib" hidden>画像ライブラリに戻る</button>
       <button class="btn btn--ghost" type="button" id="pickClose">閉じる</button>
     </div>
     <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む"></div>
-    <div class="modal__body"><div class="pickgrid" id="pickGrid"></div></div>
+    <div class="modal__body">
+      <div class="pickgrid" id="pickGrid"></div>
+      <div class="igsetup" id="igSetup" hidden>
+        <p class="igsetup__lead">インスタグラムの投稿から写真を選べるようにします。<br>
+          最初に一度だけ、読み取り用のカギ（アクセストークン）を登録してください。</p>
+        <input type="password" id="igToken" placeholder="ここにカギを貼り付けます" autocomplete="off">
+        <button class="btn btn--primary" type="button" id="igSave">登録する</button>
+        <p class="igsetup__note">このカギは、このパソコンの中だけに保存されます。<br>
+          GitHub には送られません。</p>
+        <p class="igsetup__error" id="igError"></p>
+      </div>
+    </div>
   </div>
 </div>"""
 
@@ -719,6 +801,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_html(shell("点検", view_check(), "check"))
             if p == "/api/images":
                 return self.send_json({"images": list_images()})
+            if p == "/api/instagram/media":
+                if not ig_token():
+                    return self.send_json({"configured": False, "items": []})
+                try:
+                    return self.send_json({"configured": True, "items": ig_recent()})
+                except Exception as e:
+                    return self.send_json({"configured": True, "items": [],
+                                           "error": ig_message(e)})
             if p.startswith("/page/"):
                 name = p[6:]
                 return self.send_html(shell("編集", view_page(name), "page:" + name))
@@ -800,6 +890,25 @@ class Handler(BaseHTTPRequestHandler):
             # --- 画像アップロード -------------------------------------
             if p == "/api/upload":
                 return self.send_json({"paths": self.save_uploads()})
+
+            if p == "/api/instagram/token":
+                token = str(self.body_json().get("token", "")).strip()
+                if not token:
+                    return self.send_json({"ok": False, "error": "文字列が空です"})
+                ig_save_token(token)
+                try:
+                    ig_recent(1)
+                except Exception as e:
+                    ig_save_token("")
+                    return self.send_json({"ok": False, "error": ig_message(e)})
+                return self.send_json({"ok": True})
+
+            if p == "/api/instagram/import":
+                try:
+                    return self.send_json({"ok": True,
+                                           "path": ig_import(self.body_json().get("id", ""))})
+                except Exception as e:
+                    return self.send_json({"ok": False, "error": ig_message(e)})
 
             # --- 画像削除 ---------------------------------------------
             if p == "/api/delete-image":
