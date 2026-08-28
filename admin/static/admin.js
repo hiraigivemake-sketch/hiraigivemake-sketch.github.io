@@ -34,8 +34,13 @@
   var allImages = [];
   var onPick = null;
 
-  function openPicker(callback) {
+  var allowMulti = false;
+  var chosen = [];
+
+  function openPicker(callback, opts) {
     onPick = callback;
+    allowMulti = !!(opts && opts.multiple);
+    chosen = [];
     modal.classList.add("is-open");
     pickSearch.value = "";
     showLibrary();
@@ -76,31 +81,76 @@
       });
   }
 
+  function importOne(id) {
+    return fetch("/api/instagram/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id })
+    }).then(function (r) { return r.json(); });
+  }
+
   function renderInstagram(items) {
     pickGrid.innerHTML = "";
+    chosen = [];
     items.forEach(function (post) {
       var b = document.createElement("button");
       b.type = "button";
       b.innerHTML =
         '<img src="' + post.thumb + '" alt="" loading="lazy">' +
         "<span>" + (post.date || "") + (post.caption ? "　" + post.caption : "") + "</span>";
+
       b.addEventListener("click", function () {
+        if (allowMulti) {
+          var i = chosen.indexOf(post.id);
+          if (i >= 0) { chosen.splice(i, 1); b.classList.remove("is-chosen"); }
+          else { chosen.push(post.id); b.classList.add("is-chosen"); }
+          updateChosenBar();
+          return;
+        }
         b.disabled = true;
         b.querySelector("span").textContent = "取り込んでいます…";
-        fetch("/api/instagram/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: post.id })
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (d) {
-            if (!d.ok) { alert(d.error || "取り込めませんでした"); b.disabled = false; return; }
-            allImages = [];
-            if (onPick) onPick(d.path);
-            closePicker();
-          });
+        importOne(post.id).then(function (d) {
+          if (!d.ok) { alert(d.error || "取り込めませんでした"); b.disabled = false; return; }
+          allImages = [];
+          if (onPick) onPick(d.path);
+          closePicker();
+        });
       });
       pickGrid.appendChild(b);
+    });
+    updateChosenBar();
+  }
+
+  /* 複数選んだときの確定バー */
+  function updateChosenBar() {
+    var bar = document.getElementById("chosenBar");
+    if (!bar) return;
+    bar.hidden = !(allowMulti && chosen.length);
+    var n = bar.querySelector("#chosenCount");
+    if (n) n.textContent = chosen.length;
+  }
+
+  var chosenGo = document.getElementById("chosenGo");
+  if (chosenGo) {
+    chosenGo.addEventListener("click", function () {
+      if (!chosen.length) return;
+      chosenGo.disabled = true;
+      chosenGo.textContent = "取り込んでいます…";
+      var ids = chosen.slice();
+      (function next(i, paths) {
+        if (i >= ids.length) {
+          allImages = [];
+          paths.forEach(function (p) { if (onPick) onPick(p); });
+          chosenGo.disabled = false;
+          chosenGo.innerHTML = '選んだ写真を入れる（<span id="chosenCount">0</span>枚）';
+          closePicker();
+          return;
+        }
+        importOne(ids[i]).then(function (d) {
+          if (d.ok) paths.push(d.path);
+          next(i + 1, paths);
+        });
+      })(0, []);
     });
   }
 
@@ -240,7 +290,7 @@
     /* 画像リスト：追加 */
     if (act === "imglist-add") {
       var list = btn.closest(".field").querySelector(".imglist");
-      openPicker(function (path) { addImageToList(list, path); });
+      openPicker(function (path) { addImageToList(list, path); }, { multiple: true });
     }
 
     /* 画像リスト：削除 */
@@ -303,7 +353,7 @@
         ta.value = ta.value.slice(0, pos) + snippet + ta.value.slice(pos);
         ta.focus();
         ta.selectionStart = ta.selectionEnd = pos + snippet.length;
-      });
+      }, { multiple: true });
     }
   });
 
@@ -368,6 +418,36 @@
         list.setAttribute("data-base", base + "[" + i + "]" + r);
         renumberImageList(list);
       });
+    });
+  }
+
+  /* ------------------------------------------- 保存せずに確認する */
+  var previewBtn = document.getElementById("previewBtn");
+  if (previewBtn) {
+    previewBtn.addEventListener("click", function () {
+      var tab = window.open("", "_blank");
+      previewBtn.disabled = true;
+      var before = previewBtn.textContent;
+      previewBtn.textContent = "作成中…";
+      var done = function (msg) {
+        previewBtn.disabled = false;
+        previewBtn.textContent = before;
+        if (tab) tab.close();
+        alert(msg);
+      };
+      fetch("/api/preview/" + previewBtn.getAttribute("data-kind"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildTree())
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) { done(d.error || "確認用のページを作れませんでした"); return; }
+          previewBtn.disabled = false;
+          previewBtn.textContent = before;
+          if (tab) tab.location = d.url; else window.open(d.url, "_blank");
+        })
+        .catch(function () { done("確認用のページを作れませんでした"); });
     });
   }
 

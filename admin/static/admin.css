@@ -455,3 +455,19 @@ pre.log {
 }
 .igsetup__note { margin: 16px 0 0; font-size: 13px; color: #6e5a47; line-height: 1.8; }
 .igsetup__error { margin: 12px 0 0; font-size: 14px; color: #b03a24; min-height: 1.2em; }
+
+/* 複数選択 */
+.modal__chosen {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 18px; border-bottom: 1px solid #e7ded0; background: #fdf6ec;
+}
+.modal__hint { font-size: 13px; color: #6e5a47; }
+.pickgrid button.is-chosen {
+  outline: 3px solid #ed7300; outline-offset: -3px; border-radius: 8px;
+}
+.pickgrid button.is-chosen::after {
+  content: "✓"; position: absolute; top: 6px; right: 8px;
+  width: 22px; height: 22px; line-height: 22px; text-align: center;
+  background: #ed7300; color: #fff; border-radius: 50%; font-size: 13px; font-weight: 700;
+}
+.pickgrid button { position: relative; }

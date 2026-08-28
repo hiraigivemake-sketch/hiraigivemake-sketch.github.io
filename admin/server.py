@@ -179,7 +179,7 @@ def simple_to_html(value: str) -> str:
 
 
 # ================================================================= 画面の骨組み
-def shell(title: str, body: str, active: str = "") -> bytes:
+def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
     pages = sorted((CONTENT / "pages").glob("*.json"))
     links = []
     for p in pages:
@@ -231,6 +231,10 @@ def shell(title: str, body: str, active: str = "") -> bytes:
       <button class="btn btn--ghost" type="button" id="pickClose">閉じる</button>
     </div>
     <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む"></div>
+    <div class="modal__chosen" id="chosenBar" hidden>
+      <button class="btn btn--primary" type="button" id="chosenGo">選んだ写真を入れる（<span id="chosenCount">0</span>枚）</button>
+      <span class="modal__hint">写真をクリックすると選択・解除できます。</span>
+    </div>
     <div class="modal__body">
       <div class="pickgrid" id="pickGrid"></div>
       <div class="igsetup" id="igSetup" hidden>
@@ -254,7 +258,7 @@ def shell(title: str, body: str, active: str = "") -> bytes:
 <header class="topbar">
   <span class="topbar__brand">クリケア サイト管理</span>
   <div class="topbar__actions">
-    <a class="btn" href="{PREVIEW_URL}" target="_blank">サイトを見る</a>
+    <a class="btn" href="{view_url or PREVIEW_URL}" target="_blank">サイトを見る</a>
     <a class="btn" href="/">ホーム</a>
   </div>
 </header>
@@ -487,10 +491,47 @@ def render_page_form(data: dict) -> str:
     return "".join(out)
 
 
-def savebar(url: str, note: str = "") -> str:
+def render_preview(kind: str, meta: dict, body: str) -> str:
+    """保存せずに、いまの内容で下書きページを作る。
+
+    一時的な記事ファイルを置いて生成し、すぐ消す。生成済みのページは
+    次に保存するまで残るので、そのまま見てもらえる。
+    """
+    meta = dict(meta or {})
+    meta["slug"] = "_preview"
+    meta["title"] = meta.get("title") or "（下書き）"
+    date = str(meta.get("date") or datetime.now(JST).strftime("%Y-%m-%d"))[:10]
+    meta["date"] = date
+    tmp = CONTENT / kind / f"{date}-_preview.md"
+    try:
+        write_post(tmp, meta, body or "")
+        builder.build(include_future=True)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return f"{PREVIEW_URL}{kind}/_preview/"
+
+
+def sweep_previews() -> None:
+    """前回の下書きファイルが残っていたら片づける。"""
+    for kind in ("blog", "recruit"):
+        for f in (CONTENT / kind).glob("*-_preview.md"):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+
+
+def savebar(url: str, note: str = "", preview_kind: str = "") -> str:
+    preview = (
+        f'<button class="btn" type="button" id="previewBtn" data-kind="{esc(preview_kind)}">'
+        f"保存せずに確認</button>"
+        if preview_kind else ""
+    )
     return f"""
 <div class="savebar">
   <button class="btn btn--primary" type="button" id="saveBtn" data-url="{esc(url)}">保存する</button>
+  {preview}
   <span class="savebar__msg">{esc(note) or "保存すると、その場でサイトに反映されます。"}</span>
 </div>"""
 
@@ -706,7 +747,7 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
   </div>
 </details>
 {delete}
-{savebar(url)}"""
+{savebar(url, preview_kind=kind)}"""
 
 
 def view_post(kind: str, filename: str) -> str:
@@ -854,7 +895,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_html(shell("新規作成", view_new(kind), "list:" + kind))
             if p.startswith("/post/"):
                 _, _, kind, name = p.split("/", 3)
-                return self.send_html(shell("記事の編集", view_post(kind, name), "list:" + kind))
+                meta, _ = read_post(CONTENT / kind / name)
+                slug = meta.get("slug") or Path(name).stem
+                return self.send_html(shell("記事の編集", view_post(kind, name), "list:" + kind,
+                                            f"{PREVIEW_URL}{kind}/{slug}/"))
             if p.startswith("/asset/"):
                 return self.send_file(ROOT / p[len("/asset/"):])
             if p.startswith("/preview"):
@@ -936,6 +980,19 @@ class Handler(BaseHTTPRequestHandler):
                     ig_save_token("")
                     return self.send_json({"ok": False, "error": ig_message(e)})
                 return self.send_json({"ok": True})
+
+            if p.startswith("/api/preview/"):
+                kind = p[len("/api/preview/"):]
+                if kind not in ("blog", "recruit"):
+                    return self.send_json({"ok": False, "error": "対象が不明です"})
+                data = self.body_json()
+                try:
+                    url = render_preview(kind, restore_html(data.get("meta") or {}),
+                                         data.get("body", ""))
+                    return self.send_json({"ok": True, "url": url})
+                except Exception as e:
+                    return self.send_json({"ok": False,
+                                           "error": f"下書きを作れませんでした（{type(e).__name__}）"})
 
             if p == "/api/instagram/import":
                 try:
@@ -1051,6 +1108,7 @@ def start_preview_server() -> None:
 
 
 def main() -> None:
+    sweep_previews()
     run_build()
     start_preview_server()
     url = f"http://localhost:{PORT}/"

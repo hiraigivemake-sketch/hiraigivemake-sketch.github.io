@@ -9,3 +9,7 @@ __pycache__/
 
 # 認証情報（絶対に共有しない・自分のパソコンの中だけ）
 admin/.secrets.json
+
+# 保存せずに確認したときの一時ファイル
+content/blog/*-_preview.md
+content/recruit/*-_preview.md
