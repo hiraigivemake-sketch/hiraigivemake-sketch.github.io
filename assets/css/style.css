@@ -398,6 +398,14 @@ body.is-menu-open { overflow: hidden; }
 }
 
 /* ------------------------------------------------------------ 記事本文 */
+/* 記事タイトル（STUDIO 版と同じ 52px。画面が狭いときは自動で縮む） */
+.post-title {
+  font-family: var(--f-body);
+  font-weight: 700;
+  font-size: clamp(28px, 5.4vw, 52px);
+  line-height: 1.2;
+}
+
 .article { max-width: 800px; margin-inline: auto; }
 .article__header { text-align: center; }
 .article__title { margin-top: 16px; font-size: 32px; font-weight: 700; line-height: 1.5; }
