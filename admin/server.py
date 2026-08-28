@@ -81,20 +81,46 @@ def ig_get(path: str, **params) -> dict:
     return ig.get_json("https://graph.instagram.com/" + path + "?" + urllib.parse.urlencode(params))
 
 
+# 複数枚投稿（カルーセル）は children で中の写真も取れる
+IG_FIELDS_PICKER = ig.FIELDS + ",children{id,media_type,media_url,thumbnail_url}"
+IG_FIELDS_ONE = "id,media_type,media_url,thumbnail_url"
+IG_MAX_TILES = 60
+
+
 def ig_recent(limit: int = 24) -> list:
-    """最近の投稿を、写真つきで一覧にする。"""
+    """最近の投稿を写真つきで一覧にする。複数枚投稿は1枚ずつ並べる。"""
+    try:
+        data = ig_get("me/media", fields=IG_FIELDS_PICKER, limit=limit)
+    except Exception:
+        # children が使えない場合でも、1枚目だけは出せるようにする
+        data = ig_get("me/media", fields=ig.FIELDS, limit=limit)
+
     out = []
-    for post in (ig_get("me/media", fields=ig.FIELDS, limit=limit).get("data") or []):
-        src = ig.picture_of(post)
-        if not src:
-            continue
-        out.append({
-            "id": str(post.get("id", "")),
-            "thumb": src,
-            "caption": ig.tidy_caption(post.get("caption", "")),
-            "date": str(post.get("timestamp", ""))[:10],
-        })
-    return out
+    for post in (data.get("data") or []):
+        date = str(post.get("timestamp", ""))[:10]
+        text = ig.tidy_caption(post.get("caption", ""))
+        kids = ((post.get("children") or {}).get("data")) or []
+
+        if kids:
+            for i, kid in enumerate(kids, 1):
+                src = ig.picture_of(kid)
+                if not src:
+                    continue
+                out.append({
+                    "id": str(kid.get("id", "")),
+                    "thumb": src,
+                    "caption": f"{i}/{len(kids)}枚目" + (f"　{text}" if text else ""),
+                    "date": date,
+                })
+        else:
+            src = ig.picture_of(post)
+            if src:
+                out.append({"id": str(post.get("id", "")), "thumb": src,
+                            "caption": text, "date": date})
+
+        if len(out) >= IG_MAX_TILES:
+            break
+    return out[:IG_MAX_TILES]
 
 
 def ig_message(e: Exception) -> str:
@@ -109,7 +135,7 @@ def ig_message(e: Exception) -> str:
 
 def ig_import(media_id: str) -> str:
     """指定した投稿の写真を取り込み、サイト内のパスを返す。"""
-    post = ig_get(str(media_id), fields=ig.FIELDS)
+    post = ig_get(str(media_id), fields=IG_FIELDS_ONE)
     src = ig.picture_of(post)
     if not src:
         raise ValueError("この投稿から写真を取り出せませんでした")
