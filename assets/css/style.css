@@ -73,6 +73,8 @@ table { border-collapse: collapse; width: 100%; }
 .section--bg { background: var(--c-bg); }
 .section--rounded { border-radius: 40px 40px 0 0; }
 .section--tight { padding-block: 80px; }
+/* 記事ページ（ブログ・採用）はボタンと本文の間を詰める。下の余白は変えない */
+.section--post { padding-top: 8px; }
 
 /* 見出し（日本語ラベル＋英字大見出し） */
 .heading { display: flex; flex-direction: column; gap: 4px; }
