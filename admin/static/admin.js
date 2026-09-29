@@ -421,6 +421,86 @@
     });
   }
 
+  /* --------------------------------------------- パソコンに保存する */
+  // 受け取ったファイルをブラウザに保存させる
+  function saveResponse(res) {
+    var type = res.headers.get("Content-Type") || "";
+    if (type.indexOf("application/json") >= 0) {
+      return res.json().then(function (d) { throw new Error(d.error || "保存できませんでした"); });
+    }
+    var cd = res.headers.get("Content-Disposition") || "";
+    var m = cd.match(/filename\*=UTF-8''([^;]+)/);
+    var name = m ? decodeURIComponent(m[1]) : "画像";
+    return res.blob().then(function (blob) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    });
+  }
+
+  function postDownload(url, payload, btn, label) {
+    btn.disabled = true;
+    var before = btn.innerHTML;
+    btn.textContent = "準備しています…";
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(saveResponse)
+      .catch(function (e) { alert(e.message || "保存できませんでした"); })
+      .then(function () { btn.disabled = false; btn.innerHTML = before; if (label) label(); });
+  }
+
+  /* 画像ライブラリでの選択と保存 */
+  var savePicked = document.getElementById("savePicked");
+  if (savePicked) {
+    var pickedCount = document.getElementById("pickedCount");
+    var pickAll = document.getElementById("pickAll");
+
+    var refreshPicked = function () {
+      var n = document.querySelectorAll("[data-pick]:checked").length;
+      pickedCount.textContent = n;
+      savePicked.disabled = !n;
+      document.querySelectorAll("[data-pick]").forEach(function (c) {
+        c.closest("figure").classList.toggle("is-picked", c.checked);
+      });
+    };
+
+    document.addEventListener("change", function (e) {
+      if (e.target.matches("[data-pick]")) refreshPicked();
+    });
+
+    if (pickAll) {
+      pickAll.addEventListener("click", function () {
+        var boxes = [...document.querySelectorAll("figure:not([hidden]) [data-pick]")];
+        var turnOn = boxes.some(function (c) { return !c.checked; });
+        boxes.forEach(function (c) { c.checked = turnOn; });
+        pickAll.textContent = turnOn ? "選択を解除" : "すべて選ぶ";
+        refreshPicked();
+      });
+    }
+
+    savePicked.addEventListener("click", function () {
+      var paths = [...document.querySelectorAll("[data-pick]:checked")]
+        .map(function (c) { return c.getAttribute("data-pick"); });
+      if (!paths.length) return;
+      postDownload("/api/download", { paths: paths }, savePicked, refreshPicked);
+    });
+  }
+
+  /* インスタ選択画面からの保存 */
+  var chosenSave = document.getElementById("chosenSave");
+  if (chosenSave) {
+    chosenSave.addEventListener("click", function () {
+      if (!chosen.length) return;
+      postDownload("/api/instagram/download", { ids: chosen.slice() }, chosenSave);
+    });
+  }
+
   /* ------------------------------------------- 保存せずに確認する */
   var previewBtn = document.getElementById("previewBtn");
   if (previewBtn) {

@@ -21,7 +21,10 @@ import shutil
 import subprocess
 import sys
 import urllib.parse
+import urllib.request
 import webbrowser
+import zipfile
+from io import BytesIO
 from datetime import datetime, timedelta, timezone
 import socket
 import threading
@@ -51,6 +54,44 @@ IMAGE_EXT = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".svg", ".avif"}
 
 def esc(v) -> str:
     return html.escape("" if v is None else str(v))
+
+
+# ------------------------------------------------ パソコンに保存する
+def fetch_bytes(url: str) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "kuricare-site"})
+    with urllib.request.urlopen(req, timeout=60) as res:
+        return res.read()
+
+
+def safe_image_path(web_path: str) -> Path:
+    """/assets/images/… を、確実に画像フォルダの中のファイルに変換する。"""
+    rel = str(web_path or "").split("?")[0].lstrip("/")
+    if not rel.startswith("assets/images/"):
+        raise ValueError("画像の場所が正しくありません")
+    target = (ROOT / rel).resolve()
+    if IMAGES.resolve() not in target.parents or not target.is_file():
+        raise ValueError("画像が見つかりません")
+    return target
+
+
+def bundle(files: list) -> tuple:
+    """(ファイル名, 中身) を返す。2点以上なら zip にまとめる。"""
+    if not files:
+        raise ValueError("画像が選ばれていません")
+    if len(files) == 1:
+        return files[0][0], files[0][1]
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        used = set()
+        for name, data in files:
+            base, n = name, 2
+            while base in used:
+                stem, _, ext = name.rpartition(".")
+                base = f"{stem}-{n}.{ext}" if ext else f"{name}-{n}"
+                n += 1
+            used.add(base)
+            z.writestr(base, data)
+    return f"画像{len(files)}点_{datetime.now(JST).strftime('%Y%m%d')}.zip", buf.getvalue()
 
 
 # ------------------------------------------- インスタグラムから画像を取り込む
@@ -233,6 +274,7 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
     <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む"></div>
     <div class="modal__chosen" id="chosenBar" hidden>
       <button class="btn btn--primary" type="button" id="chosenGo">選んだ写真を入れる（<span id="chosenCount">0</span>枚）</button>
+      <button class="btn" type="button" id="chosenSave">パソコンに保存</button>
       <span class="modal__hint">写真をクリックすると選択・解除できます。</span>
     </div>
     <div class="modal__body">
@@ -783,6 +825,7 @@ def view_images() -> str:
         tag = "" if name in used else '<span style="color:#c0392b">未使用</span>　'
         cards.append(f"""
 <figure data-search="{esc(name)}">
+  <label class="gallery__pick"><input type="checkbox" data-pick="{esc(path)}"><span></span></label>
   <img src="/asset{esc(path)}" alt="" loading="lazy">
   <figcaption>{tag}{esc(name)}</figcaption>
   <div class="gallery__tools">
@@ -801,7 +844,13 @@ def view_images() -> str:
   <input type="file" id="dropInput" accept="image/*" multiple hidden>
 </div>
 
-<div class="toolbar"><input type="search" id="listFilter" placeholder="ファイル名で探す"></div>
+<div class="toolbar">
+  <input type="search" id="listFilter" placeholder="ファイル名で探す">
+  <button class="btn" type="button" id="pickAll">すべて選ぶ</button>
+  <button class="btn btn--primary" type="button" id="savePicked" disabled>
+    パソコンに保存（<span id="pickedCount">0</span>点）</button>
+  <span class="field__hint" style="margin:0">写真の左上をクリックすると選べます。2点以上はZIPでまとめて保存します。</span>
+</div>
 <div class="gallery">{''.join(cards)}</div>"""
 
 
@@ -843,6 +892,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(303)
         self.send_header("Location", location)
         self.end_headers()
+
+    def send_download(self, filename: str, data: bytes):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header(
+            "Content-Disposition",
+            "attachment; filename*=UTF-8''" + urllib.parse.quote(filename))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def send_file(self, path: Path):
         if not path.is_file():
@@ -993,6 +1052,35 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     return self.send_json({"ok": False,
                                            "error": f"下書きを作れませんでした（{type(e).__name__}）"})
+
+            # --- パソコンに保存（ライブラリの画像）---------------------
+            if p == "/api/download":
+                try:
+                    files = []
+                    for web in (self.body_json().get("paths") or [])[:60]:
+                        f = safe_image_path(web)
+                        files.append((f.name, f.read_bytes()))
+                    name, data = bundle(files)
+                    return self.send_download(name, data)
+                except Exception as e:
+                    return self.send_json({"ok": False, "error": str(e) if isinstance(e, ValueError)
+                                           else f"保存できませんでした（{type(e).__name__}）"})
+
+            # --- パソコンに保存（インスタから直接）---------------------
+            if p == "/api/instagram/download":
+                try:
+                    files = []
+                    for mid in (self.body_json().get("ids") or [])[:60]:
+                        post = ig_get(str(mid), fields=IG_FIELDS_ONE)
+                        src = ig.picture_of(post)
+                        if not src:
+                            continue
+                        stem = re.sub(r"\W", "", str(post.get("id", "")))[:32] or "photo"
+                        files.append((stem + ig.extension_of(src), fetch_bytes(src)))
+                    name, data = bundle(files)
+                    return self.send_download(name, data)
+                except Exception as e:
+                    return self.send_json({"ok": False, "error": ig_message(e)})
 
             if p == "/api/instagram/import":
                 try:
