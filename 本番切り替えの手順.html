@@ -1,0 +1,399 @@
+<meta charset="utf-8">
+<title>本番切り替えの手順</title>
+<style>
+:root{
+  --ground:#FBF7EF; --panel:#FFFFFF; --sunken:#F5EFE5;
+  --ink:#33302C; --ink-soft:#6E5A47;
+  --accent:#ED7300; --accent-soft:#FCEEDD; --rule:#E7DCCA;
+  --warn:#B3261E; --warn-soft:#FBEDEC;
+  --ok:#1E7A3C; --ok-soft:#E9F5EC;
+  --shadow:0 1px 2px rgba(105,85,68,.05),0 8px 26px rgba(105,85,68,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+    --ink:#F0E9DF; --ink-soft:#B8A794;
+    --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+    --warn:#FF8A80; --warn-soft:#3A211E;
+    --ok:#7FD69B; --ok-soft:#1E3325;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+  --ink:#F0E9DF; --ink-soft:#B8A794;
+  --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+  --warn:#FF8A80; --warn-soft:#3A211E;
+  --ok:#7FD69B; --ok-soft:#1E3325;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.9;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding:52px 22px 100px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);margin:0 0 12px}
+h1{margin:0;font-size:clamp(28px,6.5vw,40px);font-weight:800;line-height:1.32;letter-spacing:-.015em;text-wrap:balance}
+.sub{margin:16px 0 0;color:var(--ink-soft);font-size:15px}
+h2{margin:56px 0 0;font-size:13px;font-weight:700;letter-spacing:.18em;color:var(--ink-soft);
+  padding-bottom:12px;border-bottom:1px solid var(--rule)}
+
+.hero-answer{margin:30px 0 0;padding:26px 28px;border-radius:16px;background:var(--ok-soft);border:2px solid var(--ok)}
+.hero-answer p{margin:0;font-size:19px;font-weight:800;line-height:1.6;color:var(--ok)}
+.hero-answer span{display:block;margin-top:10px;font-size:15px;font-weight:400;color:var(--ink)}
+
+.callout{margin:24px 0 0;padding:20px 22px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--rule)}
+.callout p{margin:0}
+.callout p+p{margin-top:10px}
+.callout strong{color:var(--accent)}
+
+.warn{margin:22px 0 0;padding:20px 22px;border-radius:14px;background:var(--warn-soft);border:2px solid var(--warn)}
+.warn p{margin:0;font-size:15.5px}
+.warn p+p{margin-top:10px}
+.warn b{color:var(--warn)}
+.warn__title{font-size:16px;font-weight:800;color:var(--warn);margin-bottom:8px !important}
+
+table{width:100%;border-collapse:collapse;margin-top:18px;font-size:15px}
+th,td{text-align:left;padding:12px;border-bottom:1px solid var(--rule);vertical-align:top}
+thead th{color:var(--ink-soft);font-size:12.5px;font-weight:700;letter-spacing:.06em;background:var(--sunken)}
+tbody th{font-weight:700;white-space:nowrap}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl-wrap{overflow-x:auto}
+
+.step{display:grid;grid-template-columns:52px 1fr;gap:0 18px;margin-top:26px;padding:22px 24px;
+  border-radius:16px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.step__no{grid-row:1/span 5;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--accent);color:#fff;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.step__title{margin:8px 0 0;font-size:19px;font-weight:700;line-height:1.5}
+.step__where{margin:10px 0 0;padding:8px 14px;border-radius:9px;background:var(--sunken);
+  font-size:13.5px;font-weight:700;color:var(--ink-soft);display:inline-block}
+.step__body{margin:12px 0 0}
+.step__body p{margin:0 0 12px}
+.step__body p:last-child{margin-bottom:0}
+.step__body ol,.step__body ul{margin:0 0 12px;padding-left:1.4em}
+.step__body li{margin-bottom:7px}
+.step__time{margin-top:12px;font-size:13.5px;color:var(--ink-soft)}
+.step--pre{border-color:var(--warn)}
+.step--pre .step__no{background:var(--warn)}
+
+.ui{display:inline-block;padding:2px 10px;border-radius:7px;background:var(--sunken);
+  border:1px solid var(--rule);font-weight:700;font-size:14px;white-space:nowrap}
+code{background:var(--sunken);border:1px solid var(--rule);padding:2px 8px;border-radius:6px;
+  font-size:13.5px;word-break:break-all;font-variant-numeric:tabular-nums}
+.ip{display:block;margin:4px 0;padding:8px 14px;border-radius:8px;background:var(--sunken);
+  border:1px solid var(--rule);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+
+.card{margin-top:16px;padding:20px 22px;border-radius:14px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.card h3{margin:0 0 8px;font-size:16.5px;font-weight:700}
+.card p{margin:0;font-size:15px;color:var(--ink-soft)}
+.card p+p{margin-top:8px}
+.card ul,.card ol{margin:10px 0 0;padding-left:1.4em;font-size:15px;color:var(--ink-soft)}
+
+dl.faq{margin:14px 0 0}
+dl.faq dt{margin-top:22px;font-weight:700}
+dl.faq dt::before{content:"？";color:var(--accent);font-weight:800;margin-right:8px}
+dl.faq dd{margin:6px 0 0 24px;color:var(--ink-soft);font-size:15px}
+
+.checklist{margin-top:20px;padding:24px 26px;border-radius:16px;background:var(--panel);border:2px solid var(--accent)}
+.checklist h3{margin:0 0 14px;font-size:17px;font-weight:800;color:var(--accent)}
+.checklist ol{margin:0;padding:0;list-style:none}
+.checklist li{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:12px 0;
+  border-top:1px dashed var(--rule);align-items:start}
+.checklist li:first-child{border-top:0}
+.checklist li::before{content:"";width:22px;height:22px;margin-top:4px;border:2px solid var(--rule);border-radius:6px}
+.checklist b{display:block;font-size:15.5px}
+.checklist span{display:block;font-size:13.5px;color:var(--ink-soft);line-height:1.7}
+
+figure.map{margin:26px 0 0;padding:22px;border-radius:16px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+figure.map svg{width:100%;height:auto;display:block}
+figure.map figcaption{margin-top:14px;font-size:14px;color:var(--ink-soft);line-height:1.75}
+
+footer{margin-top:72px;padding-top:24px;border-top:1px solid var(--rule);color:var(--ink-soft);font-size:13px}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+@media print{ body{background:#fff} .step,.card,.checklist{break-inside:avoid;box-shadow:none} }
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">クリケア訪問看護ステーション</p>
+<h1>本番のホームページに<br>切り替える手順</h1>
+<p class="sub">いま <code>giveandmake-c.com</code> で公開されているホームページを、STUDIOから新しいシステムへ移します。実際の契約状況を調べたうえで、必要な作業だけをまとめました。</p>
+
+<div class="hero-answer">
+  <p>新しく契約するものは、ひとつもありません。</p>
+  <span>すでにお持ちのドメインの「向き先」を変えるだけです。ホームページの置き場（サーバー）は GitHub Pages が無料で提供しており、契約も支払いも不要です。</span>
+</div>
+
+<h2>いまの契約状況（調べた結果）</h2>
+
+<div class="tbl-wrap">
+<table>
+  <thead><tr><th>役割</th><th>契約先</th><th>これから</th></tr></thead>
+  <tbody>
+    <tr><th>ドメイン<br><code>giveandmake-c.com</code></th>
+        <td>ムームードメイン（GMO）<br><span style="font-size:13px;color:var(--ink-soft)">有効期限 2027年2月24日</span></td>
+        <td>そのまま継続<br><b>ここの設定だけ変更します</b></td></tr>
+    <tr><th>メール<br><code>@giveandmake-c.com</code></th>
+        <td>ロリポップ！</td>
+        <td>そのまま継続<br><b>いっさい触りません</b></td></tr>
+    <tr><th>ホームページの置き場</th>
+        <td>STUDIO</td>
+        <td>GitHub Pages へ<br><b>無料・契約不要</b></td></tr>
+    <tr><th>フォームの受付</th>
+        <td>STUDIO のフォーム機能</td>
+        <td>Googleフォームへ<br><b>無料・要設定</b></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+  <p><strong>費用はこう変わります</strong></p>
+  <p>これまで … ドメイン ＋ ロリポップ ＋ <b>STUDIOの月額</b><br>
+  これから … ドメイン ＋ ロリポップ <b>のみ</b></p>
+  <p>ホームページの置き場とフォームが無料になるので、<b>STUDIOの月額費用がまるごと不要</b>になります。</p>
+</div>
+
+<h2>切り替えの流れ</h2>
+
+<figure class="map">
+<svg viewBox="0 0 700 180" role="img" aria-label="ドメインの向き先をSTUDIOからGitHubへ変える流れの図">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+  <g font-family="inherit" text-anchor="middle">
+    <rect x="240" y="8" width="220" height="52" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="350" y="32" font-size="14" font-weight="700" fill="var(--ink)">giveandmake-c.com</text>
+    <text x="350" y="50" font-size="11.5" fill="var(--ink-soft)">ムームードメインが向き先を管理</text>
+
+    <line x1="290" y1="64" x2="200" y2="104" stroke="var(--rule)" stroke-width="2" stroke-dasharray="5 4"/>
+    <line x1="410" y1="64" x2="500" y2="104" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ar)"/>
+
+    <rect x="60" y="110" width="250" height="56" rx="12" fill="var(--sunken)" stroke="var(--rule)" stroke-width="1.5"/>
+    <text x="185" y="134" font-size="14" font-weight="700" fill="var(--ink-soft)">STUDIO（いま）</text>
+    <text x="185" y="153" font-size="11.5" fill="var(--ink-soft)">切り離して、あとで解約</text>
+
+    <rect x="390" y="110" width="250" height="56" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="515" y="134" font-size="14" font-weight="700" fill="var(--ink)">GitHub Pages（これから）</text>
+    <text x="515" y="153" font-size="11.5" fill="var(--ink-soft)">無料・自動更新つき</text>
+  </g>
+</svg>
+<figcaption>ドメインは「住所」、サーバーは「建物」にあたります。今回やるのは<b>住所の案内先を、古い建物から新しい建物へ書き換えるだけ</b>です。住所そのもの（ドメイン）もメールも変わりません。</figcaption>
+</figure>
+
+<h2>作業の前に必ず</h2>
+
+<div class="step step--pre">
+  <div class="step__no">0</div>
+  <h3 class="step__title">お問い合わせフォームを使えるようにする</h3>
+  <span class="step__where">Googleフォーム（無料）</span>
+  <div class="step__body">
+    <p><b>いまのままでは、お問い合わせフォームも見学応募フォームも送信できません。</b>STUDIOのフォーム機能が使えなくなるためです。訪問看護のご依頼が届かなくなってしまうので、切り替え前に必ず済ませてください。</p>
+    <ol>
+      <li>Googleフォームで、サイトと同じ項目のフォームを2つ作る
+        <ul>
+          <li>お問い合わせ用 … お名前／電話番号／メールアドレス／お問い合わせ項目／その他お問い合わせ内容</li>
+          <li>見学応募用 … お名前／E-mail／希望求人／希望内容／希望事業所／電話番号／その他ご相談やご質問</li>
+        </ul>
+      </li>
+      <li>作ったフォームのURLを Claude Code に伝える</li>
+      <li>設定はこちらで行います（見た目は今のまま、内容がスプレッドシートに届くようになります）</li>
+    </ol>
+    <p class="step__time">所要：フォーム作成30分ほど ＋ 設定はこちらで数分</p>
+  </div>
+</div>
+
+<h2>切り替えの手順</h2>
+
+<div class="callout">
+  <p><strong>この順番が大切です。</strong>下の順にやれば、ホームページが見られなくなる時間をほぼゼロにできます。逆の順でやると、数十分つながらなくなります。</p>
+</div>
+
+<div class="step">
+  <div class="step__no">1</div>
+  <h3 class="step__title">GitHubに、使いたいアドレスを登録する</h3>
+  <span class="step__where">GitHub のサイト（ブラウザ）</span>
+  <div class="step__body">
+    <ol>
+      <li>GitHubでリポジトリ <code>hiraigivemake-sketch.github.io</code> を開く</li>
+      <li>上のタブ <span class="ui">Settings</span> → 左メニュー <span class="ui">Pages</span></li>
+      <li><b>Custom domain</b> の欄に <code>giveandmake-c.com</code> と入力して <span class="ui">Save</span></li>
+    </ol>
+    <p>「DNS check unsuccessful（確認できません）」という赤い表示が出ますが、<b>この時点では正常です。</b>次の手順で解消します。</p>
+    <p><b>この作業では、いまのホームページは何も変わりません。</b>引き続きSTUDIOの内容が表示されます。</p>
+    <p class="step__time">所要：2分</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">2</div>
+  <h3 class="step__title">設定ファイルを追加して送信する</h3>
+  <span class="step__where">Claude Code（こちらで作業します）</span>
+  <div class="step__body">
+    <p>ステップ1が終わったら教えてください。アドレスを記憶させるためのファイルを用意し、動作確認のうえ準備します。あとは <span class="ui">⑥ 変更をGitHubに送る</span> を押していただくだけです。</p>
+    <p class="step__time">所要：5分</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">3</div>
+  <h3 class="step__title">ドメインの向き先を変える　← ここで切り替わります</h3>
+  <span class="step__where">ムームードメイン の管理画面</span>
+  <div class="step__body">
+    <ol>
+      <li><a href="https://muumuu-domain.com/" target="_blank" rel="noopener">ムームードメイン</a> にログイン</li>
+      <li>左メニュー <span class="ui">ドメイン操作</span> → <span class="ui">ムームーDNS</span></li>
+      <li><code>giveandmake-c.com</code> の行の <span class="ui">変更</span> を押す</li>
+      <li><b>カスタム設定</b> の一覧が表示されます</li>
+    </ol>
+
+    <p style="margin-top:16px"><b>いまある「種別A・内容 34.111.141.225」の1行を削除し、かわりに次の4行を追加します。</b></p>
+
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>サブドメイン</th><th>種別</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>（空欄）</td><td>A</td><td class="num">185.199.108.153</td></tr>
+        <tr><td>（空欄）</td><td>A</td><td class="num">185.199.109.153</td></tr>
+        <tr><td>（空欄）</td><td>A</td><td class="num">185.199.110.153</td></tr>
+        <tr><td>（空欄）</td><td>A</td><td class="num">185.199.111.153</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p style="margin-top:14px">入力できたら <span class="ui">セットアップ情報変更</span> を押して保存します。</p>
+    <p class="step__time">所要：10分</p>
+  </div>
+</div>
+
+<div class="warn">
+  <p class="warn__title">⚠ 絶対に消してはいけない設定があります</p>
+  <p>同じ画面に、<b>メールのための設定</b>が入っています。これを消すと <code>@giveandmake-c.com</code> 宛のメールが届かなくなります。</p>
+  <p style="margin-top:12px">
+    <b>種別 MX</b>　内容 <code>mx01.lolipop.jp</code>（優先度 50）<br>
+    <b>種別 TXT</b>　内容 <code>v=spf1 include:lolipop.jp ~all</code><br>
+    <b>種別 TXT</b>　内容 <code>google-site-verification=…</code>
+  </p>
+  <p><b>この3行はそのまま残してください。</b>変更するのは「種別A」の行だけです。</p>
+  <p style="margin-top:12px">不安な場合は、<b>変更前の画面をスクリーンショットで撮っておく</b>と安心です。万一のときも元に戻せます。</p>
+</div>
+
+<div class="step">
+  <div class="step__no">4</div>
+  <h3 class="step__title">切り替わったか確認する</h3>
+  <span class="step__where">ブラウザ</span>
+  <div class="step__body">
+    <p>設定の反映には <b>10分〜1時間</b>ほどかかります（長いと数時間）。ときどき <code>https://giveandmake-c.com</code> を開いて確認してください。</p>
+    <p>新しいホームページが表示されれば成功です。見分け方は、<b>スタッフ紹介ページに9名全員が載っているか</b>です。</p>
+    <p>古いまま表示される場合は、ブラウザで <b>⌘+Shift+R</b>（Windowsは Ctrl+F5）を押して読み込み直してください。</p>
+    <p class="step__time">所要：待ち時間 10分〜1時間</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">5</div>
+  <h3 class="step__title">鍵マーク（暗号化）を有効にする</h3>
+  <span class="step__where">GitHub のサイト</span>
+  <div class="step__body">
+    <p>ステップ4が確認できたら、もう一度 <span class="ui">Settings</span> → <span class="ui">Pages</span> を開きます。</p>
+    <p><b>Enforce HTTPS</b> というチェック欄が押せるようになっているので、<b>チェックを入れます</b>。</p>
+    <p>これでアドレスバーに鍵マークが付き、安全な通信になります。証明書の準備に最大1時間かかることがあり、それまではチェックが押せません。その場合は時間をおいてからお試しください。</p>
+    <p class="step__time">所要：1分（準備待ちが最大1時間）</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">6</div>
+  <h3 class="step__title">1〜2週間ようすを見てから、STUDIOを解約</h3>
+  <span class="step__where">STUDIO</span>
+  <div class="step__body">
+    <p><b>切り替えてすぐには解約しないでください。</b>問題が起きたときにすぐ戻せるよう、しばらく残しておきます。</p>
+    <p>1〜2週間、次の点を確認して問題がなければ解約して構いません。</p>
+    <ul>
+      <li>各ページが正しく表示されるか</li>
+      <li>お問い合わせフォームから実際に送信して、届くか</li>
+      <li>スマートフォンでも問題ないか</li>
+      <li>Google検索から来たときも正しく表示されるか</li>
+    </ul>
+    <p class="step__time">所要：様子見1〜2週間</p>
+  </div>
+</div>
+
+<h2>当日のチェックリスト</h2>
+
+<div class="checklist">
+  <h3>切り替え作業の手順</h3>
+  <ol>
+    <li><b>Googleフォームを作り、設定を済ませた</b><span>これが終わるまで切り替えないでください</span></li>
+    <li><b>ムームーDNSの画面をスクリーンショットで保存した</b><span>万一のとき元に戻すため</span></li>
+    <li><b>GitHubで Custom domain に giveandmake-c.com を登録した</b><span>赤い警告が出ますが正常です</span></li>
+    <li><b>Claude Code に連絡し、設定ファイルを送信した</b><span>⑥ 変更をGitHubに送る</span></li>
+    <li><b>ムームーDNSで A レコードを4つに差し替えた</b><span>MXとTXTの3行は残す</span></li>
+    <li><b>giveandmake-c.com を開いて、新しいサイトが出た</b><span>スタッフ9名が目印</span></li>
+    <li><b>GitHubで Enforce HTTPS にチェックを入れた</b><span>鍵マークが付きます</span></li>
+    <li><b>フォームから実際に送信して、届くことを確認した</b><span>いちばん大事な確認です</span></li>
+    <li><b>1〜2週間後、STUDIOを解約した</b><span>あわてず、確認してから</span></li>
+  </ol>
+</div>
+
+<div class="callout">
+  <p><strong>おすすめの実施タイミング</strong></p>
+  <p>切り替え中は一時的に不安定になることがあります。<b>平日の夕方以降、または土日</b>など、お問い合わせが少ない時間帯に行うのが安心です。</p>
+</div>
+
+<h2>切り替えたあとの運用</h2>
+
+<div class="card">
+  <h3>毎回（更新のたび）</h3>
+  <p><span class="ui">① 編集をはじめる</span> で直して、<span class="ui">⑥ 変更をGitHubに送る</span>。1〜2分で本番のホームページに反映されます。</p>
+</div>
+
+<div class="card">
+  <h3>月に1回</h3>
+  <p><span class="ui">③ 点検する</span>（リンク切れ・スマホ表示のチェック）と <span class="ui">④ バックアップを取る</span>。</p>
+</div>
+
+<div class="card">
+  <h3>年に1回</h3>
+  <p><b>ドメインの更新</b>だけ忘れないようにしてください。2027年2月24日が期限です。ムームードメインで自動更新を有効にしておくと安心です。<b>期限が切れるとホームページもメールも止まります。</b></p>
+</div>
+
+<h2>よくある質問</h2>
+
+<dl class="faq">
+  <dt>本当に無料で公開し続けられますか</dt>
+  <dd>はい。GitHub Pages は公開リポジトリであれば無料で、容量・通信量とも通常の事業所サイトには十分です。ドメイン代（年間数千円）とメール代だけが継続費用になります。</dd>
+
+  <dt>ホームページのアドレスは変わりますか</dt>
+  <dd>変わりません。<code>https://giveandmake-c.com</code> のままです。ブログ記事の個別アドレスもすべて同じなので、検索順位や既存のリンクへの影響もありません。</dd>
+
+  <dt>メールは大丈夫ですか</dt>
+  <dd>今回変更するのは「ホームページの向き先」だけで、メールの設定は触りません。ただし操作ミスで消してしまうと届かなくなるため、作業前のスクリーンショットをおすすめしています。</dd>
+
+  <dt>切り替えに失敗したら戻せますか</dt>
+  <dd>戻せます。ムームーDNSのAレコードを <code>34.111.141.225</code> に戻せば、STUDIOの表示に戻ります。だからこそSTUDIOをすぐ解約しないことが大切です。</dd>
+
+  <dt>www を付けたアドレスはどうなりますか</dt>
+  <dd>現在 <code>www.giveandmake-c.com</code> は設定されていないため、いまも使えていません。必要であれば追加できますので、ご希望があればお知らせください。</dd>
+
+  <dt>途中で分からなくなったら</dt>
+  <dd>その画面のスクリーンショットを Claude Code に貼り付けてください。どこを押せばよいかお答えします。作業を中断しても、ホームページが壊れることはありません。</dd>
+</dl>
+
+<h2>いま止まっていること</h2>
+
+<div class="warn">
+  <p class="warn__title">先にフォームの設定が必要です</p>
+  <p>切り替えの準備は整っていますが、<b>お問い合わせフォームと見学応募フォームがまだ送信できません。</b>この状態で本番に切り替えると、訪問看護のご依頼や採用応募が届かなくなります。</p>
+  <p>Googleフォームを2つ作っていただき、そのURLを教えていただければ、こちらで設定します。<b>そこさえ終われば、あとは上の手順どおりに進めるだけです。</b></p>
+</div>
+
+<footer>
+  クリケア訪問看護ステーション ホームページ 本番切り替え手順<br>
+  調査日：2026年9月30日／ドメイン：ムームードメイン（有効期限 2027年2月24日）／メール：ロリポップ！<br>
+  日々の更新のしかたは「更新マニュアル」、編集画面の使い方は「使い方ガイド」をご覧ください。
+</footer>
+
+</div>

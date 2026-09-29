@@ -1,0 +1,402 @@
+<meta charset="utf-8">
+<title>フォーム2種の案</title>
+<style>
+:root{
+  --ground:#FBF7EF; --panel:#FFFFFF; --sunken:#F5EFE5;
+  --ink:#33302C; --ink-soft:#6E5A47;
+  --accent:#ED7300; --accent-soft:#FCEEDD; --rule:#E7DCCA;
+  --req:#B3261E; --warn-soft:#FBEDEC;
+  --ok:#1E7A3C; --ok-soft:#E9F5EC;
+  --shadow:0 1px 2px rgba(105,85,68,.05),0 8px 26px rgba(105,85,68,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+    --ink:#F0E9DF; --ink-soft:#B8A794;
+    --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+    --req:#FF8A80; --warn-soft:#3A211E;
+    --ok:#7FD69B; --ok-soft:#1E3325;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+  --ink:#F0E9DF; --ink-soft:#B8A794;
+  --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+  --req:#FF8A80; --warn-soft:#3A211E;
+  --ok:#7FD69B; --ok-soft:#1E3325;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.9;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+.wrap{max-width:740px;margin:0 auto;padding:52px 22px 100px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);margin:0 0 12px}
+h1{margin:0;font-size:clamp(27px,6.5vw,38px);font-weight:800;line-height:1.32;letter-spacing:-.015em;text-wrap:balance}
+.sub{margin:16px 0 0;color:var(--ink-soft);font-size:15px}
+h2{margin:56px 0 0;font-size:13px;font-weight:700;letter-spacing:.18em;color:var(--ink-soft);
+  padding-bottom:12px;border-bottom:1px solid var(--rule)}
+
+.callout{margin:26px 0 0;padding:20px 22px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--rule)}
+.callout p{margin:0}
+.callout p+p{margin-top:10px}
+.callout strong{color:var(--accent)}
+
+/* ── フォームの見本 ── */
+.mock{margin-top:22px;border-radius:16px;background:var(--panel);border:1px solid var(--rule);
+  box-shadow:var(--shadow);overflow:hidden}
+.mock__head{padding:20px 24px;border-bottom:1px solid var(--rule);border-top:6px solid var(--accent)}
+.mock__title{margin:0;font-size:19px;font-weight:800;line-height:1.5}
+.mock__desc{margin:8px 0 0;font-size:14px;color:var(--ink-soft);line-height:1.75}
+.mock__body{padding:8px 24px 24px}
+
+.q{padding:18px 0;border-bottom:1px dashed var(--rule)}
+.q:last-child{border-bottom:0}
+.q__label{font-weight:700;font-size:15.5px}
+.badge{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:5px;
+  font-size:11.5px;font-weight:700;vertical-align:2px}
+.badge--req{background:var(--req);color:#fff}
+.badge--opt{background:var(--panel);border:1px solid var(--rule);color:var(--ink-soft)}
+.q__help{margin:4px 0 0;font-size:13px;color:var(--ink-soft)}
+.q__input{margin-top:10px;padding:9px 12px;border-bottom:1.5px solid var(--rule);
+  color:var(--ink-soft);font-size:14px;background:var(--sunken);border-radius:6px 6px 0 0}
+.q__area{margin-top:10px;padding:10px 12px;min-height:64px;border:1px solid var(--rule);
+  border-radius:8px;color:var(--ink-soft);font-size:14px;background:var(--sunken)}
+.q__opts{margin:10px 0 0;padding:0;list-style:none}
+.q__opts li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14.5px}
+.q__opts li::before{content:"";width:17px;height:17px;border:2px solid var(--rule);border-radius:50%;flex:none}
+.q__opts--list li::before{border-radius:4px}
+.q__select{margin-top:10px;display:inline-flex;align-items:center;gap:10px;padding:8px 14px;
+  border:1px solid var(--rule);border-radius:8px;background:var(--sunken);font-size:14px;color:var(--ink-soft)}
+.q__select::after{content:"▾";font-weight:700}
+
+.mail{margin-top:18px;padding:20px 22px;border-radius:14px;background:var(--panel);
+  border:1px solid var(--rule);box-shadow:var(--shadow)}
+.mail__head{padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--rule);font-size:14px}
+.mail__head b{color:var(--ink-soft);font-weight:700;display:inline-block;width:5.5em}
+.mail__body{white-space:pre-wrap;font-size:14px;line-height:1.85;color:var(--ink)}
+
+.step{display:grid;grid-template-columns:48px 1fr;gap:0 18px;margin-top:22px;padding:20px 22px;
+  border-radius:16px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.step__no{grid-row:1/span 3;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--accent);color:#fff;font-weight:800;font-size:19px}
+.step__title{margin:6px 0 0;font-size:18px;font-weight:700;line-height:1.5}
+.step__body{margin:10px 0 0}
+.step__body p{margin:0 0 10px}
+.step__body p:last-child{margin-bottom:0}
+.step__body ol,.step__body ul{margin:0 0 10px;padding-left:1.4em}
+.step__body li{margin-bottom:6px}
+
+.card{margin-top:16px;padding:20px 22px;border-radius:14px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.card h3{margin:0 0 8px;font-size:16.5px;font-weight:700}
+.card p{margin:0;font-size:15px;color:var(--ink-soft)}
+.card p+p{margin-top:8px}
+.card ul{margin:10px 0 0;padding-left:1.4em;font-size:15px;color:var(--ink-soft)}
+
+.good{margin:24px 0 0;padding:20px 22px;border-radius:14px;background:var(--ok-soft);border:2px solid var(--ok)}
+.good p{margin:0;font-size:15.5px}
+.good b{color:var(--ok)}
+
+.ui{display:inline-block;padding:2px 10px;border-radius:7px;background:var(--sunken);
+  border:1px solid var(--rule);font-weight:700;font-size:14px;white-space:nowrap}
+code{background:var(--sunken);border:1px solid var(--rule);padding:2px 8px;border-radius:6px;font-size:13.5px;word-break:break-all}
+
+dl.faq{margin:14px 0 0}
+dl.faq dt{margin-top:22px;font-weight:700}
+dl.faq dt::before{content:"？";color:var(--accent);font-weight:800;margin-right:8px}
+dl.faq dd{margin:6px 0 0 24px;color:var(--ink-soft);font-size:15px}
+
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--rule);color:var(--ink-soft);font-size:13px}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+@media print{ body{background:#fff} .mock,.card,.step,.mail{break-inside:avoid;box-shadow:none} }
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">クリケア訪問看護ステーション</p>
+<h1>Googleフォーム<br>2種類の案</h1>
+<p class="sub">いまのホームページと<b>まったく同じ項目</b>で作った案です。この内容で作れば、訪問される方から見た見た目は今のまま変わらず、送信内容だけがGoogleスプレッドシートとメールに届くようになります。</p>
+
+<div class="callout">
+  <p><strong>まずは内容をご確認ください。</strong></p>
+  <p>項目の追加・削除・文言の変更など、直したいところがあればお知らせください。ご確認いただけたら、下の手順で実際に作成します。</p>
+</div>
+
+<h2>案① お問い合わせフォーム</h2>
+
+<div class="mock">
+  <div class="mock__head">
+    <p class="mock__title">クリケア訪問看護ステーション｜お問い合わせ</p>
+    <p class="mock__desc">訪問看護のご依頼・ご相談はこちらからお問い合わせください。<br>クリケア訪問看護ステーション（奈良県香芝市）</p>
+  </div>
+  <div class="mock__body">
+
+    <div class="q">
+      <div class="q__label">お名前<span class="badge badge--req">必須</span></div>
+      <p class="q__help">例：山田 花子</p>
+      <div class="q__input">記述式（1行）</div>
+    </div>
+
+    <div class="q">
+      <div class="q__label">電話番号<span class="badge badge--req">必須</span></div>
+      <p class="q__help">例：000-1234-5678</p>
+      <div class="q__input">記述式（1行）</div>
+    </div>
+
+    <div class="q">
+      <div class="q__label">メールアドレス<span class="badge badge--req">必須</span></div>
+      <p class="q__help">例：abc@mail.com</p>
+      <div class="q__input">記述式（1行）</div>
+    </div>
+
+    <div class="q">
+      <div class="q__label">お問い合わせ項目<span class="badge badge--req">必須</span></div>
+      <ul class="q__opts">
+        <li>相談したい</li>
+        <li>訪問看護をお願いしたい</li>
+        <li>その他（内容を次の欄にご記入ください）</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="q__label">その他お問い合わせ内容<span class="badge badge--opt">任意</span></div>
+      <p class="q__help">その他ご相談やご質問をこちらへご入力ください</p>
+      <div class="q__area">記述式（複数行）</div>
+    </div>
+
+  </div>
+</div>
+
+<h2>案② 見学申込＆応募フォーム</h2>
+
+<div class="mock">
+  <div class="mock__head">
+    <p class="mock__title">クリケア訪問看護ステーション｜見学申込＆応募</p>
+    <p class="mock__desc">見学のお申し込み・採用へのご応募はこちらからお願いいたします。<br>クリケア訪問看護ステーション（奈良県香芝市）</p>
+  </div>
+  <div class="mock__body">
+
+    <div class="q">
+      <div class="q__label">お名前<span class="badge badge--req">必須</span></div>
+      <div class="q__input">記述式（1行）</div>
+    </div>
+
+    <div class="q">
+      <div class="q__label">E-mail<span class="badge badge--req">必須</span></div>
+      <div class="q__input">記述式（1行）</div>
+    </div>
+
+    <div class="q">
+      <div class="q__label">希望求人<span class="badge badge--req">必須</span></div>
+      <div class="q__select">プルダウンから選択</div>
+      <ul class="q__opts q__opts--list">
+        <li>[正社員] 看護師</li>
+        <li>[パート]看護師</li>
+        <li>[正社員] 理学療法士</li>
+        <li>[正社員]医療事務</li>
+        <li>[正社員]主任ケアマネジャー</li>
+        <li>※選考希望以外の方</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="q__label">希望内容<span class="badge badge--req">必須</span></div>
+      <div class="q__select">プルダウンから選択</div>
+      <ul class="q__opts q__opts--list">
+        <li>面接希望</li>
+        <li>見学・面談のみ希望</li>
+        <li>見学面談＋同行訪問希望</li>
+        <li>その他ご相談やご質問</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="q__label">希望事業所<span class="badge badge--req">必須</span></div>
+      <div class="q__select">プルダウンから選択</div>
+      <ul class="q__opts q__opts--list">
+        <li>クリケア訪問看護ステーション</li>
+        <li>クリケア訪問看護ステーション斑鳩事業所（仮称）</li>
+      </ul>
+    </div>
+
+    <div class="q">
+      <div class="q__label">電話番号<span class="badge badge--opt">任意</span></div>
+      <p class="q__help">※ハイフン(-)不要</p>
+      <div class="q__input">記述式（1行）</div>
+    </div>
+
+    <div class="q">
+      <div class="q__label">その他ご相談やご質問<span class="badge badge--opt">任意</span></div>
+      <div class="q__area">記述式（複数行）</div>
+    </div>
+
+  </div>
+</div>
+
+<h2>あわせて設定するメール</h2>
+
+<div class="card">
+  <h3>① 事業所あてのお知らせメール</h3>
+  <p>送信があると、その場で <code>hirai.givemake@gmail.com</code> に届きます。スプレッドシートを見に行かなくても気づけます。宛先は変更できます。</p>
+</div>
+
+<div class="mail">
+  <div class="mail__head">
+    <div><b>件名</b>【ホームページ】クリケア訪問看護ステーション｜お問い合わせ に新しい送信がありました</div>
+  </div>
+  <div class="mail__body">■ お名前
+山田 花子
+
+■ 電話番号
+0745-00-0000
+
+■ メールアドレス
+hanako@example.com
+
+■ お問い合わせ項目
+訪問看護をお願いしたい
+
+■ その他お問い合わせ内容
+母の退院後の訪問看護についてご相談したいです。
+
+─────────────
+受信日時: 2026/10/01 14:32
+回答一覧: （スプレッドシートへのリンク）</div>
+</div>
+
+<div class="card">
+  <h3>② 送信された方への自動返信メール</h3>
+  <p>「ちゃんと届いたかな」という不安をなくすため、送信された方へすぐに受付完了のメールを返します。<b>文面はご自由に変更できます。</b>不要であれば止めることもできます。</p>
+</div>
+
+<div class="mail">
+  <div class="mail__head">
+    <div><b>差出人</b>クリケア訪問看護ステーション</div>
+    <div><b>件名</b>【クリケア訪問看護ステーション】お問い合わせを受け付けました</div>
+  </div>
+  <div class="mail__body">この度はお問い合わせいただき、誠にありがとうございます。
+以下の内容で承りました。担当者より改めてご連絡いたしますので、少々お待ちください。
+
+※このメールは自動送信です。ご返信いただいても対応いたしかねます。
+
+─────────────────────
+■ お名前
+山田 花子
+
+■ お問い合わせ項目
+訪問看護をお願いしたい
+─────────────────────
+
+クリケア訪問看護ステーション
+株式会社GIVE&MAKE
+〒639-0231 奈良県香芝市下田西2-278-7 香芝ビル2F
+TEL 0745-76-5825 / FAX 0745-76-5826
+営業時間 9:00〜18:00
+https://giveandmake-c.com</div>
+</div>
+
+<h2>作り方A：自動で作る（おすすめ・10分）</h2>
+
+<div class="good">
+  <p><b>2つのフォーム・回答用スプレッドシート・通知メール・自動返信が、いっぺんに作れます。</b>質問を1つずつ手で入力する必要はありません。</p>
+</div>
+
+<div class="step">
+  <div class="step__no">1</div>
+  <h3 class="step__title">Apps Script を開く</h3>
+  <div class="step__body">
+    <p>Googleにログインした状態で <a href="https://script.google.com/" target="_blank" rel="noopener">script.google.com</a> を開き、<span class="ui">新しいプロジェクト</span> を押します。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">2</div>
+  <h3 class="step__title">スクリプトを貼り付ける</h3>
+  <div class="step__body">
+    <p>フォルダ内の <code>tools/create_google_forms.gs</code> をテキストエディタ（メモ帳など）で開き、<b>中身をすべてコピー</b>します。</p>
+    <p>Apps Scriptの画面に最初から書かれているコードを<b>すべて消してから</b>、貼り付けてください。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">3</div>
+  <h3 class="step__title">実行して許可する</h3>
+  <div class="step__body">
+    <p>上部の関数名が <code>createForms</code> になっていることを確認し、<span class="ui">▶ 実行</span> を押します。</p>
+    <p>初回だけ許可を求められます。<span class="ui">権限を確認</span> → アカウントを選択 → <span class="ui">詳細</span> → <span class="ui">（安全でないページ）に移動</span> → <span class="ui">許可</span> の順に進んでください。</p>
+    <p>ご自身で作ったスクリプトのため、この警告は正常です。フォームを作り、メールを送るための許可を求めています。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">4</div>
+  <h3 class="step__title">実行ログをコピーして送る</h3>
+  <div class="step__body">
+    <p>画面下に <b>実行ログ</b> が表示されます。<b>その内容をすべてコピーして、Claude Code に貼り付けてください。</b></p>
+    <p>ホームページ側の設定に必要な情報（フォームのアドレスと、項目ごとの受付番号）が入っています。受け取り次第、こちらで設定します。</p>
+  </div>
+</div>
+
+<h2>作り方B：手作業で作る</h2>
+
+<div class="card">
+  <h3>自動がうまくいかないときは</h3>
+  <p><a href="https://forms.google.com/" target="_blank" rel="noopener">forms.google.com</a> で空白のフォームを2つ作り、上の「案①」「案②」のとおりに質問を入力してください。</p>
+  <ul>
+    <li>「記述式（1行）」… <b>記述式</b> を選ぶ</li>
+    <li>「記述式（複数行）」… <b>段落</b> を選ぶ</li>
+    <li>選択肢が丸印のもの … <b>ラジオボタン</b> を選ぶ</li>
+    <li>「プルダウンから選択」… <b>プルダウン</b> を選ぶ</li>
+    <li><b>必須</b>と書かれた項目は、右下の「必須」をオンにする</li>
+  </ul>
+  <p style="margin-top:10px">できあがったら、2つのフォームの<b>アドレス（URL）</b>を Claude Code に送ってください。残りはこちらで設定します。</p>
+</div>
+
+<h2>作ったあとの流れ</h2>
+
+<div class="card">
+  <h3>こちらで行うこと</h3>
+  <ul>
+    <li>ホームページのフォームを、作成したGoogleフォームにつなぐ</li>
+    <li>実際に送信して、スプレッドシートとメールに届くか確認</li>
+    <li>見た目が今のままであることを確認</li>
+  </ul>
+  <p style="margin-top:10px"><b>訪問される方から見た画面は、いまと何も変わりません。</b>Googleフォームの画面に飛ばされることもありません。</p>
+</div>
+
+<div class="card">
+  <h3>そのあと</h3>
+  <p>フォームが動くようになれば、<b>本番のホームページへの切り替え</b>に進めます。手順は「本番切り替えの手順」をご覧ください。</p>
+</div>
+
+<h2>よくある質問</h2>
+
+<dl class="faq">
+  <dt>費用はかかりますか</dt>
+  <dd>かかりません。Googleフォーム・スプレッドシート・自動返信メールのすべてが無料です。1日あたりの送信通数にも、通常の事業所であれば十分な余裕があります。</dd>
+
+  <dt>回答はどこに貯まりますか</dt>
+  <dd>Googleドライブに自動で作られるスプレッドシート（「クリケア｜お問い合わせ 回答」など）に1行ずつ追加されます。あとから並べ替えや検索ができ、Excel形式で書き出すこともできます。</dd>
+
+  <dt>通知メールの宛先を変えられますか</dt>
+  <dd>変えられます。スクリプトの上のほうにある <code>NOTIFY_EMAIL</code> の行を書き換えてください。複数名に送ることも可能です。ご希望があればこちらで設定します。</dd>
+
+  <dt>自動返信は止められますか</dt>
+  <dd>止められます。スクリプトの <code>SEND_AUTO_REPLY</code> を <code>false</code> に変えるだけです。文面の変更も同じ場所でできます。</dd>
+
+  <dt>いたずら送信が心配です</dt>
+  <dd>まずはこのまま運用し、もし迷惑な送信が続くようであれば対策を追加できます（送信数の制限や、簡単な確認項目の追加など）。ご相談ください。</dd>
+
+  <dt>あとから項目を増やせますか</dt>
+  <dd>増やせます。ただしホームページ側の設定も合わせて変更する必要があるため、変更されたらお知らせください。</dd>
+</dl>
+
+<footer>
+  クリケア訪問看護ステーション ホームページ フォーム設定の案<br>
+  スクリプトの保存場所：kuricare-site ＞ tools ＞ create_google_forms.gs<br>
+  本番への切り替え手順は「本番切り替えの手順」をご覧ください。
+</footer>
+
+</div>
