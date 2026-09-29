@@ -427,6 +427,7 @@ body.is-menu-open { overflow: hidden; }
 .article__body h2 { font-size: 26px; font-weight: 700; line-height: 1.5; color: var(--c-orange); }
 .article__body h3 { font-size: 20px; font-weight: 700; }
 .article__body img { width: 100%; border-radius: 12px; }
+.article__body video { width: 100%; border-radius: 12px; background: #000; display: block; }
 .article__body img[src*="/emoji-"],
 .article__body img[src*="slack-edge"] {
   display: inline;

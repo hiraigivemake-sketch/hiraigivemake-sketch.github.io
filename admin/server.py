@@ -152,12 +152,14 @@ def ig_recent(limit: int = 24) -> list:
                     "thumb": src,
                     "caption": f"{i}/{len(kids)}枚目" + (f"　{text}" if text else ""),
                     "date": date,
+                    "video": kid.get("media_type") == "VIDEO",
                 })
         else:
             src = ig.picture_of(post)
             if src:
                 out.append({"id": str(post.get("id", "")), "thumb": src,
-                            "caption": text, "date": date})
+                            "caption": text, "date": date,
+                            "video": post.get("media_type") == "VIDEO"})
 
         if len(out) >= IG_MAX_TILES:
             break
@@ -174,17 +176,54 @@ def ig_message(e: Exception) -> str:
     return f"取得できませんでした（{type(e).__name__}）"
 
 
-def ig_import(media_id: str) -> str:
-    """指定した投稿の写真を取り込み、サイト内のパスを返す。"""
-    post = ig_get(str(media_id), fields=IG_FIELDS_ONE)
+VIDEO_DIR = ROOT / "assets" / "videos"
+MAX_VIDEO_BYTES = 80 * 1024 * 1024        # GitHub の上限（100MB）に余裕をもたせる
+
+
+def media_source(post: dict) -> tuple:
+    """取り込む本体を返す。(URL, 拡張子, 動画か, 表紙で代替したか)
+
+    まれに Instagram が動画そのものの場所を教えてくれない投稿がある。
+    そのときは表紙の画像で代替し、代替したことを呼び出し側に伝える。
+    """
+    is_video_post = post.get("media_type") == "VIDEO"
+    if is_video_post:
+        url = post.get("media_url") or ""
+        if url:
+            ext = Path(urllib.parse.urlparse(url).path).suffix.lower()
+            return url, (ext if ext in {".mp4", ".mov", ".webm", ".m4v"} else ".mp4"), True, False
     src = ig.picture_of(post)
+    return src, (ig.extension_of(src) if src else ""), False, is_video_post
+
+
+def ig_import(media_id: str) -> dict:
+    """指定した投稿を取り込み、サイト内のパスを返す。動画は動画のまま取り込む。"""
+    post = ig_get(str(media_id), fields=IG_FIELDS_ONE)
+    src, ext, is_video, fallback = media_source(post)
     if not src:
-        raise ValueError("この投稿から写真を取り出せませんでした")
-    name = re.sub(r"\W", "", str(post.get("id", "")))[:32] + ig.extension_of(src)
-    dest = IG_DIR / name
-    if not dest.exists() and not ig.download(src, dest):
+        raise ValueError("この投稿から中身を取り出せませんでした")
+
+    name = re.sub(r"\W", "", str(post.get("id", "")))[:32] + ext
+    folder = VIDEO_DIR if is_video else IG_DIR
+    web = ("/assets/videos/" if is_video else "/assets/images/instagram/") + name
+    dest = folder / name
+    result = {"path": web, "fallback": fallback}
+    if dest.exists():
+        return result
+
+    if is_video:
+        data = fetch_bytes(src)
+        if len(data) > MAX_VIDEO_BYTES:
+            raise ValueError(
+                f"動画が大きすぎます（{len(data) // (1024 * 1024)}MB）。"
+                "80MB までの動画をお選びください。")
+        folder.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+        return result
+
+    if not ig.download(src, dest):
         raise ValueError("写真を取り込めませんでした")
-    return "/assets/images/instagram/" + name
+    return result
 
 
 # 「ページ」ではないが同じフォームで編集できるファイル
@@ -1085,7 +1124,7 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/instagram/import":
                 try:
                     return self.send_json({"ok": True,
-                                           "path": ig_import(self.body_json().get("id", ""))})
+                                           **ig_import(self.body_json().get("id", ""))})
                 except Exception as e:
                     return self.send_json({"ok": False, "error": ig_message(e)})
 

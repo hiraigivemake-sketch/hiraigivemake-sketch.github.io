@@ -175,8 +175,20 @@ def esc(value) -> str:
 
 
 # ---------------------------------------------------------------- Markdown
+# 本文では写真も動画も ![](…) と書く。拡張子を見て自動で使い分ける。
+VIDEO_EXT = (".mp4", ".mov", ".webm", ".m4v")
+
+
+def media_tag(m) -> str:
+    """![](…) を <img> か <video> に変える。中身はすでにエスケープ済み。"""
+    alt, src = m.group(1), m.group(2)
+    if src.lower().split("?")[0].endswith(VIDEO_EXT):
+        return (f'<video src="{src}" controls playsinline preload="metadata"></video>')
+    return f'<img src="{src}" alt="{alt}" loading="lazy">'
+
+
 _INLINE = [
-    (re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)"), r'<img src="\2" alt="\1" loading="lazy">'),
+    (re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)"), media_tag),
     (re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)"), r'<a href="\2" target="_blank" rel="noopener">\1</a>'),
     (re.compile(r"\*\*([^*]+)\*\*"), r"<strong>\1</strong>"),
     (re.compile(r"(?<!\*)\*([^*\n]+)\*(?!\*)"), r"<em>\1</em>"),

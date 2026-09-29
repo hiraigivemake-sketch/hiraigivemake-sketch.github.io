@@ -97,6 +97,7 @@
       b.type = "button";
       b.innerHTML =
         '<img src="' + post.thumb + '" alt="" loading="lazy">' +
+        (post.video ? '<em class="tile-video">動画</em>' : "") +
         "<span>" + (post.date || "") + (post.caption ? "　" + post.caption : "") + "</span>";
 
       b.addEventListener("click", function () {
@@ -112,6 +113,7 @@
         importOne(post.id).then(function (d) {
           if (!d.ok) { alert(d.error || "取り込めませんでした"); b.disabled = false; return; }
           allImages = [];
+          if (d.fallback) alert("この動画は取り込めなかったため、表紙の画像を入れました。");
           if (onPick) onPick(d.path);
           closePicker();
         });
@@ -137,6 +139,7 @@
       chosenGo.disabled = true;
       chosenGo.textContent = "取り込んでいます…";
       var ids = chosen.slice();
+      var fell = 0;
       (function next(i, paths) {
         if (i >= ids.length) {
           allImages = [];
@@ -144,10 +147,11 @@
           chosenGo.disabled = false;
           chosenGo.innerHTML = '選んだ写真を入れる（<span id="chosenCount">0</span>枚）';
           closePicker();
+          if (fell) alert(fell + "件は動画を取り込めなかったため、表紙の画像を入れました。");
           return;
         }
         importOne(ids[i]).then(function (d) {
-          if (d.ok) paths.push(d.path);
+          if (d.ok) { paths.push(d.path); if (d.fallback) fell++; }
           next(i + 1, paths);
         });
       })(0, []);
