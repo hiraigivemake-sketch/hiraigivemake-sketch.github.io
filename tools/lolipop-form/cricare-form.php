@@ -10,9 +10,9 @@
  *   ・万一メールが届かなかったときのため、控えをサーバーにも保存します
  *
  * 【設置のしかた】
- *   このファイルと .htaccess を、ロリポップ！FTP で
- *   公開フォルダの中の「kuricare」フォルダにアップロードするだけです。
- *   くわしくは「フォーム設置の手順」をご覧ください。
+ *   このファイル1つを、ロリポップ！FTP で公開フォルダの中の
+ *   「cricare」フォルダにアップロードするだけです。
+ *   必要なフォルダやファイルは、初回の送信時に自動で作られます。
  *
  * 設定はすぐ下の「■ 設定」だけ直せば動きます。
  */
@@ -22,12 +22,12 @@ $CONFIG = array(
 
     // 通知を受け取るメールアドレス（複数書けます）
     'to' => array(
-        'info@giveandmake-c.com',
+        'hirai@giveandmake-c.com',
     ),
 
     // 送信元として表示するアドレス
     // ※ giveandmake-c.com のアドレスにしてください（迷惑メール扱いを防ぐため）
-    'from'      => 'info@giveandmake-c.com',
+    'from'      => 'hirai@giveandmake-c.com',
     'from_name' => 'クリケア訪問看護ステーション',
 
     // 送信された方へ自動返信を送るか
@@ -44,7 +44,7 @@ $CONFIG = array(
     // 送信後に戻るページ
     'thanks_url' => 'https://giveandmake-c.com/contact-thanks/',
 
-    // 控えを保存するフォルダ（.htaccess で外から見えないようにしてあります）
+    // 控えを保存するフォルダ（外から読めないように自動で保護されます）
     'log_dir' => __DIR__ . '/_data',
 );
 
@@ -257,13 +257,29 @@ function fail($code, $message) {
     exit;
 }
 
-/** 控えをファイルに残す */
+/** 控えをファイルに残す
+ *
+ * 控えには個人情報が含まれるため、外から読まれないようにしてあります。
+ * ファイルの拡張子を .php にし、先頭に exit を書いておくことで、
+ * ブラウザで直接開かれても中身は一切表示されません。
+ * （.htaccess を別途置く必要はありません）
+ */
 function save_log($dir, $form_id, $text) {
     if (!is_dir($dir)) {
         @mkdir($dir, 0700, true);
     }
     if (!is_dir($dir)) { return; }
-    $file = $dir . '/' . $form_id . '-' . date('Y-m') . '.txt';
+
+    // フォルダの中身が一覧表示されないようにする
+    $index = $dir . '/index.php';
+    if (!file_exists($index)) {
+        @file_put_contents($index, "<?php exit; ?>\n");
+    }
+
+    $file = $dir . '/' . $form_id . '-' . date('Y-m') . '.php';
+    if (!file_exists($file)) {
+        @file_put_contents($file, "<?php exit; /* ここから下は送信内容の控えです */ ?>\n");
+    }
     $entry = str_repeat('=', 50) . "\n" . date('Y/m/d H:i:s') . "\n" . $text . "\n";
     @file_put_contents($file, $entry, FILE_APPEND | LOCK_EX);
 }

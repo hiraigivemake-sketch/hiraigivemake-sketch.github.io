@@ -11,7 +11,7 @@
   "submit": "問い合わせる",
   "form": {
     "_note": "ロリポップに設置した受け取りプログラムのURLを endpoint に入れます。空のあいだは送信できません。",
-    "endpoint": "",
+    "endpoint": "https://giveandmake-c.blush.jp/cricare/cricare-form.php",
     "id": "contact"
   },
   "fields": [
