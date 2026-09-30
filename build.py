@@ -352,7 +352,10 @@ def parse_front_matter(text: str) -> tuple[dict, str]:
         if not line or line.startswith("#") or ":" not in line:
             continue
         key, _, value = line.partition(":")
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            # 引用符で囲んだ値。中の \" や \\ は、もとの文字に戻す
+            value = value[1:-1].replace('\\"', '"').replace("\\'", "'").replace("\\\\", "\\")
         if value.startswith("[") and value.endswith("]"):
             items = [v.strip().strip('"').strip("'") for v in value[1:-1].split(",")]
             meta[key.strip()] = [v for v in items if v]

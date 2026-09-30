@@ -2,16 +2,16 @@
 title: "クリケアのスタッフが増えました！"
 slug: "stuffjoin"
 date: "2024-04-15"
-thumbnail: "https://storage.googleapis.com/studio-cms-assets/projects/Jgqe6onBak/s-1024x768_v-fs_webp_062764fe-9332-4625-ab74-a77dcbabf340.jpg"
+thumbnail: "/assets/images/s-1024x768_v-fs_webp_062764fe-9332-4625-ab74-a77dcbabf340.webp"
 description: "クリケアに新たに常勤スタッフが増えて、全員で6名になりました！ 今回、新たに入職してくれた3名の女性看護師を簡単にご紹介します（instagramやホームページでも改めてご紹介しますね！） 近隣の地域連携室で、連携支援を"
 ---
 クリケアに新たに常勤スタッフが増えて、全員で6名になりました！
 
-![](https://storage.googleapis.com/studio-cms-assets/projects/Jgqe6onBak/s-1024x768_v-fs_webp_8584b9c1-a9d3-4ba2-8824-e8594712b86a.jpg)
+![](/assets/images/s-1024x768_v-fs_webp_8584b9c1-a9d3-4ba2-8824-e8594712b86a.webp)
 
 今回、新たに入職してくれた3名の女性看護師を簡単にご紹介します（instagramやホームページでも改めてご紹介しますね！）
 
-![](https://storage.googleapis.com/studio-cms-assets/projects/Jgqe6onBak/s-1280x1280_v-fms_webp_bc9a18f4-7564-4f41-9a5d-8fdef514fdca.jpg)
+![](/assets/images/s-1280x1280_v-fms_webp_bc9a18f4-7564-4f41-9a5d-8fdef514fdca_middle.webp)
 
 近隣の地域連携室で、連携支援をバリバリにしていた看護師、
 
