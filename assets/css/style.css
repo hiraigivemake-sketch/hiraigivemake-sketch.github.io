@@ -377,7 +377,9 @@ body.is-menu-open { overflow: hidden; }
   font-weight: 600;
   letter-spacing: 0.04em;
 }
-.post-card__title { font-size: 16px; font-weight: 700; line-height: 1.6; }
+.post-card__title { font-size: 16px; font-weight: 700; line-height: 1.6;
+  /* 記事名に空白が続く場合でも、画面からはみ出さないようにする */
+  overflow-wrap: anywhere; }
 
 .center-action { display: flex; justify-content: center; margin-top: 48px; }
 
@@ -402,6 +404,7 @@ body.is-menu-open { overflow: hidden; }
 /* ------------------------------------------------------------ 記事本文 */
 /* 記事タイトル（STUDIO 版と同じ 52px。画面が狭いときは自動で縮む） */
 .post-title {
+  overflow-wrap: anywhere;   /* 記事名に空白が続く場合でも、はみ出さないようにする */
   font-family: var(--f-body);
   font-weight: 700;
   font-size: clamp(28px, 5.4vw, 52px);
