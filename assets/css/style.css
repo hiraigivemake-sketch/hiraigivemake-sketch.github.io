@@ -1011,3 +1011,18 @@ body.is-menu-open { overflow: hidden; }
   text-underline-offset: 3px;
   font-weight: 700;
 }
+
+
+/* 迷惑送信よけの入力欄（人には見せず、読み上げ対象からも外す） */
+.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* 送信結果のお知らせ */
+.form__status { margin-top: 16px; text-align: center; font-weight: 700; min-height: 1.6em; }
+.form__status.is-ok { color: var(--c-line); }
+.form__status.is-ng { color: #b3261e; }

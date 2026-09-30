@@ -51,6 +51,7 @@ SECTION_LABELS = {
     "jobs": "募集一覧の見出し",
     "fields": "フォームの入力項目",
     "google_form": "フォームの送信先設定",
+    "form": "フォームの送信先設定",
     "head_actions": "ページ上部のボタン",
     "items": "項目",
     "rows": "表の行",
@@ -68,6 +69,8 @@ SECTION_LABELS = {
 # ひとつひとつの入力欄の名前
 FIELD_LABELS = {
     "_note": "ご案内",
+    "endpoint": "受け取りプログラムのURL（ロリポップ）",
+    "id": "フォームの種類（変更しないでください）",
     "show_blog": "ブログ欄を表示する",
     "show_instagram": "インスタグラム欄を表示する",
     "instagram_first": "インスタグラムをブログより上に置く",

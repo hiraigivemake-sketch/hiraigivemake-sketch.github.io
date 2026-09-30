@@ -28,30 +28,63 @@
   });
 
   /* ---------------------------------------------- フォーム送信
-     送信先（Google フォーム）が未設定のときは送信せず、案内だけ表示します。
-     設定方法は README.md「フォームの送信先を設定する」を参照してください。 */
+     送信先（ロリポップの受け取りプログラム）が設定されていれば、画面を移動せずに送ります。
+     設定されていないあいだは送信せず、電話・LINEをご案内します。 */
   document.querySelectorAll("form[data-form]").forEach(function (form) {
     var status = form.querySelector(".form__status");
-    var configured = form.getAttribute("data-configured");
+    var endpoint = form.getAttribute("data-endpoint");
+    var button = form.querySelector("button[type=submit]");
+
+    // 表示した時刻を記録（一瞬で送信されたら自動プログラムとみなすため）
+    var t = form.querySelector('input[name="_t"]');
+    if (t) t.value = Math.floor(Date.now() / 1000);
+
+    function say(message, ok) {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("is-ok", !!ok);
+      status.classList.toggle("is-ng", !ok);
+    }
 
     form.addEventListener("submit", function (e) {
-      if (!configured) {
+      if (!endpoint) {
         e.preventDefault();
-        if (status) {
-          status.textContent =
-            "現在このフォームは送信先が未設定です。お手数ですが、お電話またはLINEからご連絡ください。";
-          status.style.color = "var(--c-orange)";
-        }
+        say("ただいまフォームの準備中です。お手数ですが、お電話（0745-76-5825）またはLINEからご連絡ください。", false);
         return;
       }
-      // Google フォームは応答を読み取れないため、送信後に完了表示へ切り替える
-      setTimeout(function () {
-        form.reset();
-        if (status) {
-          status.textContent = "送信しました。ご連絡ありがとうございます。";
-          status.style.color = "var(--c-orange)";
-        }
-      }, 800);
+
+      // 画面を移動させずに送る
+      e.preventDefault();
+      var data = new FormData(form);
+      data.set("_ajax", "1");
+
+      button.disabled = true;
+      var original = button.textContent;
+      button.textContent = "送信中…";
+      say("", true);
+
+      fetch(endpoint, { method: "POST", body: new URLSearchParams(data) })
+        .then(function (r) { return r.json().catch(function () { return { ok: r.ok }; }); })
+        .then(function (res) {
+          if (res.ok) {
+            form.reset();
+            if (t) t.value = Math.floor(Date.now() / 1000);
+            say("送信しました。担当者より折り返しご連絡いたします。", true);
+          } else {
+            say(res.error || "送信できませんでした。お手数ですが、お電話（0745-76-5825）でご連絡ください。", false);
+          }
+        })
+        .catch(function () {
+          // 通信に失敗したときは、ふつうの送信（画面が移動する方式）に切り替える
+          var flag = form.querySelector('input[name="_ajax"]');
+          if (flag) flag.value = "0";
+          form.submit();
+        })
+        .finally(function () {
+          button.disabled = false;
+          button.textContent = original;
+        });
     });
   });
+
 })();

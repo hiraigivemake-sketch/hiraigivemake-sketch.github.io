@@ -1,0 +1,279 @@
+<meta charset="utf-8">
+<title>フォーム設置の手順</title>
+<style>
+:root{
+  --ground:#FBF7EF; --panel:#FFFFFF; --sunken:#F5EFE5;
+  --ink:#33302C; --ink-soft:#6E5A47;
+  --accent:#ED7300; --accent-soft:#FCEEDD; --rule:#E7DCCA;
+  --req:#B3261E; --warn-soft:#FBEDEC;
+  --ok:#1E7A3C; --ok-soft:#E9F5EC;
+  --shadow:0 1px 2px rgba(105,85,68,.05),0 8px 26px rgba(105,85,68,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+    --ink:#F0E9DF; --ink-soft:#B8A794;
+    --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+    --req:#FF8A80; --warn-soft:#3A211E;
+    --ok:#7FD69B; --ok-soft:#1E3325;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#1F1B18; --panel:#2A2521; --sunken:#241F1B;
+  --ink:#F0E9DF; --ink-soft:#B8A794;
+  --accent:#FF9433; --accent-soft:#3A2A18; --rule:#41382F;
+  --req:#FF8A80; --warn-soft:#3A211E;
+  --ok:#7FD69B; --ok-soft:#1E3325;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;line-height:1.9;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+.wrap{max-width:740px;margin:0 auto;padding:52px 22px 100px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--accent);margin:0 0 12px}
+h1{margin:0;font-size:clamp(27px,6.5vw,38px);font-weight:800;line-height:1.32;letter-spacing:-.015em;text-wrap:balance}
+.sub{margin:16px 0 0;color:var(--ink-soft);font-size:15px}
+h2{margin:56px 0 0;font-size:13px;font-weight:700;letter-spacing:.18em;color:var(--ink-soft);
+  padding-bottom:12px;border-bottom:1px solid var(--rule)}
+
+.callout{margin:26px 0 0;padding:20px 22px;border-radius:14px;background:var(--accent-soft);border:1px solid var(--rule)}
+.callout p{margin:0}
+.callout p+p{margin-top:10px}
+.callout strong{color:var(--accent)}
+
+/* ── フォームの見本 ── */
+.mock{margin-top:22px;border-radius:16px;background:var(--panel);border:1px solid var(--rule);
+  box-shadow:var(--shadow);overflow:hidden}
+.mock__head{padding:20px 24px;border-bottom:1px solid var(--rule);border-top:6px solid var(--accent)}
+.mock__title{margin:0;font-size:19px;font-weight:800;line-height:1.5}
+.mock__desc{margin:8px 0 0;font-size:14px;color:var(--ink-soft);line-height:1.75}
+.mock__body{padding:8px 24px 24px}
+
+.q{padding:18px 0;border-bottom:1px dashed var(--rule)}
+.q:last-child{border-bottom:0}
+.q__label{font-weight:700;font-size:15.5px}
+.badge{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:5px;
+  font-size:11.5px;font-weight:700;vertical-align:2px}
+.badge--req{background:var(--req);color:#fff}
+.badge--opt{background:var(--panel);border:1px solid var(--rule);color:var(--ink-soft)}
+.q__help{margin:4px 0 0;font-size:13px;color:var(--ink-soft)}
+.q__input{margin-top:10px;padding:9px 12px;border-bottom:1.5px solid var(--rule);
+  color:var(--ink-soft);font-size:14px;background:var(--sunken);border-radius:6px 6px 0 0}
+.q__area{margin-top:10px;padding:10px 12px;min-height:64px;border:1px solid var(--rule);
+  border-radius:8px;color:var(--ink-soft);font-size:14px;background:var(--sunken)}
+.q__opts{margin:10px 0 0;padding:0;list-style:none}
+.q__opts li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14.5px}
+.q__opts li::before{content:"";width:17px;height:17px;border:2px solid var(--rule);border-radius:50%;flex:none}
+.q__opts--list li::before{border-radius:4px}
+.q__select{margin-top:10px;display:inline-flex;align-items:center;gap:10px;padding:8px 14px;
+  border:1px solid var(--rule);border-radius:8px;background:var(--sunken);font-size:14px;color:var(--ink-soft)}
+.q__select::after{content:"▾";font-weight:700}
+
+.mail{margin-top:18px;padding:20px 22px;border-radius:14px;background:var(--panel);
+  border:1px solid var(--rule);box-shadow:var(--shadow)}
+.mail__head{padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--rule);font-size:14px}
+.mail__head b{color:var(--ink-soft);font-weight:700;display:inline-block;width:5.5em}
+.mail__body{white-space:pre-wrap;font-size:14px;line-height:1.85;color:var(--ink)}
+
+.step{display:grid;grid-template-columns:48px 1fr;gap:0 18px;margin-top:22px;padding:20px 22px;
+  border-radius:16px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.step__no{grid-row:1/span 3;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--accent);color:#fff;font-weight:800;font-size:19px}
+.step__title{margin:6px 0 0;font-size:18px;font-weight:700;line-height:1.5}
+.step__body{margin:10px 0 0}
+.step__body p{margin:0 0 10px}
+.step__body p:last-child{margin-bottom:0}
+.step__body ol,.step__body ul{margin:0 0 10px;padding-left:1.4em}
+.step__body li{margin-bottom:6px}
+
+.card{margin-top:16px;padding:20px 22px;border-radius:14px;background:var(--panel);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.card h3{margin:0 0 8px;font-size:16.5px;font-weight:700}
+.card p{margin:0;font-size:15px;color:var(--ink-soft)}
+.card p+p{margin-top:8px}
+.card ul{margin:10px 0 0;padding-left:1.4em;font-size:15px;color:var(--ink-soft)}
+
+.good{margin:24px 0 0;padding:20px 22px;border-radius:14px;background:var(--ok-soft);border:2px solid var(--ok)}
+.good p{margin:0;font-size:15.5px}
+.good b{color:var(--ok)}
+
+.ui{display:inline-block;padding:2px 10px;border-radius:7px;background:var(--sunken);
+  border:1px solid var(--rule);font-weight:700;font-size:14px;white-space:nowrap}
+code{background:var(--sunken);border:1px solid var(--rule);padding:2px 8px;border-radius:6px;font-size:13.5px;word-break:break-all}
+
+dl.faq{margin:14px 0 0}
+dl.faq dt{margin-top:22px;font-weight:700}
+dl.faq dt::before{content:"？";color:var(--accent);font-weight:800;margin-right:8px}
+dl.faq dd{margin:6px 0 0 24px;color:var(--ink-soft);font-size:15px}
+
+footer{margin-top:70px;padding-top:24px;border-top:1px solid var(--rule);color:var(--ink-soft);font-size:13px}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+@media print{ body{background:#fff} .mock,.card,.step,.mail{break-inside:avoid;box-shadow:none} }
+</style><style>
+.warn{margin:22px 0 0;padding:20px 22px;border-radius:14px;background:var(--warn-soft);border:2px solid var(--req)}
+.warn p{margin:0;font-size:15.5px}
+.warn p+p{margin-top:10px}
+.warn__title{font-size:16px;font-weight:800;color:var(--req);margin-bottom:8px !important}
+.key{color:var(--ink-soft);font-size:14px;margin-top:8px}
+.card ol{margin:10px 0 0;padding-left:1.4em;font-size:15px;color:var(--ink-soft)}
+.card li{margin-bottom:8px}
+.card li b{color:var(--ink)}
+</style>
+
+<div class="wrap">
+
+<p class="eyebrow">クリケア訪問看護ステーション</p>
+<h1>フォームを<br>ロリポップに設置する手順</h1>
+<p class="sub">Googleフォームを使わず、<b>すでにご契約中のロリポップ！</b>でお問い合わせを受け取ります。追加費用はかからず、送信内容が第三者を経由しません。</p>
+
+<div class="good">
+  <p><b>ホームページ側のフォームは、すでにできあがっています。</b>今回設置するのは「送信ボタンを押したあと、内容を受け取ってメールを送る部分」だけです。</p>
+</div>
+
+<h2>この方式でできること</h2>
+
+<div class="card">
+  <h3>送信されると、こうなります</h3>
+  <ul>
+    <li>事業所あてに、内容がメールで届く（宛先は複数指定できます）</li>
+    <li>送信された方へ「受け付けました」の自動返信が届く</li>
+    <li>万一メールが届かなかったときのため、控えがサーバーにも残る</li>
+    <li>画面は移動せず、その場で「送信しました」と表示される</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>迷惑送信への対策も入っています</h3>
+  <p>人には見えない入力欄と、表示から送信までの時間を見る仕組みを入れてあります。訪問される方の手間は一切増えません（画像認証などは不要です）。</p>
+</div>
+
+<h2>ご用意いただくもの</h2>
+
+<div class="callout">
+  <p><strong>パスワードはお聞きしません。</strong>ファイルのアップロードは、ロリポップの管理画面（ブラウザ）から行えます。FTPソフトも不要です。</p>
+</div>
+
+<div class="card">
+  <h3>次の2つを教えてください</h3>
+  <ol>
+    <li><b>お問い合わせを受け取るメールアドレス</b><br>
+      <span style="font-size:14px">例：<code>info@giveandmake-c.com</code>　複数でも構いません</span></li>
+    <li><b>ロリポップの「初期ドメイン」または独自ドメインの設定状況</b><br>
+      <span style="font-size:14px">ロリポップにログイン →「アカウント情報」に書かれている <code>○○○.main.jp</code> のようなアドレスです</span></li>
+  </ol>
+</div>
+
+<h2>設置の手順</h2>
+
+<div class="step">
+  <div class="step__no">1</div>
+  <h3 class="step__title">メールアドレスを設定する</h3>
+  <div class="step__body">
+    <p>フォルダ内の <code>tools/lolipop-form/kuricare-form.php</code> の上のほうに、宛先を書く場所があります。</p>
+    <p><b>上の「ご用意いただくもの」を教えていただければ、こちらで書き換えます。</b>ご自身で直す場合は、<code>'to' =&gt; array(...)</code> と <code>'from' =&gt;</code> の行のメールアドレスを変更してください。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">2</div>
+  <h3 class="step__title">ロリポップにログインしてファイルを置く</h3>
+  <div class="step__body">
+    <ol>
+      <li><a href="https://user.lolipop.jp/" target="_blank" rel="noopener">ロリポップ！ユーザー専用ページ</a> にログイン</li>
+      <li>左メニュー <span class="ui">サーバーの管理・設定</span> → <span class="ui">ロリポップ！FTP</span></li>
+      <li>画面上の <span class="ui">新規フォルダ作成</span> で <code>kuricare</code> という名前のフォルダを作る</li>
+      <li>作った <code>kuricare</code> フォルダを開く</li>
+      <li><span class="ui">アップロード</span> を押し、次の2つのファイルを選んでアップロード
+        <ul>
+          <li><code>kuricare-form.php</code></li>
+          <li><code>.htaccess</code></li>
+        </ul>
+      </li>
+    </ol>
+    <p class="key">※ 2つとも <code>tools/lolipop-form/</code> フォルダの中にあります。<code>.htaccess</code> はMacでは見えないことがあります。Finderで <b>⌘ + Shift + .</b>（コマンド・シフト・ピリオド）を押すと表示されます。</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">3</div>
+  <h3 class="step__title">置いた場所のアドレスを教えてください</h3>
+  <div class="step__body">
+    <p>アップロードできたら、次の形のアドレスになります。</p>
+    <p><code>https://○○○.main.jp/kuricare/kuricare-form.php</code></p>
+    <p>この <code>○○○</code> の部分（ロリポップの初期ドメイン）を教えてください。<b>こちらでホームページ側につなぎ、実際に送信テストまで行います。</b></p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step__no">4</div>
+  <h3 class="step__title">送信テストをする</h3>
+  <div class="step__body">
+    <p>つないだあと、実際にフォームから送信して次を確認します。</p>
+    <ul>
+      <li>事業所あてにメールが届くか</li>
+      <li>送信した本人あてに自動返信が届くか</li>
+      <li>「送信しました」と画面に表示されるか</li>
+      <li>迷惑メールフォルダに入っていないか</li>
+    </ul>
+    <p class="key">※ 迷惑メール扱いされる場合は、送信元アドレスを <code>@giveandmake-c.com</code> のものに揃えると改善します。</p>
+  </div>
+</div>
+
+<h2>なぜロリポップが良いのか</h2>
+
+<div class="card">
+  <h3>追加費用が発生しません</h3>
+  <p>メールのためにすでにご契約中のため、この用途に新たな支払いは生じません。送信数の上限もありません。</p>
+</div>
+
+<div class="card">
+  <h3>ご相談内容が第三者を経由しません</h3>
+  <p>訪問看護のご相談には、健康状態など配慮が必要な内容が含まれます。この方式なら、<b>入力内容は自社サーバーから自社のメールアドレスへ直接届き</b>、外部のフォーム会社のサーバーを通りません。プライバシーポリシーの内容とも整合します。</p>
+</div>
+
+<div class="card">
+  <h3>サービス終了や仕様変更の影響を受けません</h3>
+  <p>外部の無料サービスは、終了したり無料枠が縮小したりすることがあります。自社サーバーに置いておけば、その心配がありません。</p>
+</div>
+
+<h2>気をつけていただきたいこと</h2>
+
+<div class="warn">
+  <p class="warn__title">⚠ 控えファイルについて</p>
+  <p>メールが万一届かなかったときのため、送信内容の控えがサーバーの <code>kuricare/_data/</code> に保存されます。<b>個人情報が含まれるため、外から見えないようにする設定ファイル（.htaccess）を必ず一緒にアップロードしてください。</b></p>
+  <p>控えが不要であれば、その機能を止めることもできます。お知らせください。</p>
+</div>
+
+<div class="card">
+  <h3>ロリポップの契約は続けてください</h3>
+  <p>メールとフォームの両方でロリポップを使うことになります。解約するとどちらも止まりますのでご注意ください。</p>
+</div>
+
+<h2>よくある質問</h2>
+
+<dl class="faq">
+  <dt>PHPがよく分かりませんが大丈夫ですか</dt>
+  <dd>中身を理解する必要はありません。ファイルを2つアップロードしていただくだけです。設定はこちらで行います。</dd>
+
+  <dt>ファイルをアップロードするとホームページが壊れませんか</dt>
+  <dd>壊れません。ホームページ本体はGitHubにあり、今回ロリポップに置くのは受け取り用の小さなプログラムだけです。まったく別の場所なので影響しません。</dd>
+
+  <dt>あとからGoogleフォームや他の方式に変えられますか</dt>
+  <dd>変えられます。ホームページ側は「送信先のアドレス」を差し替えるだけの作りにしてあるため、あとからどの方式にも切り替えられます。</dd>
+
+  <dt>フォームの項目を増やしたいときは</dt>
+  <dd>ホームページ側（編集画面）とロリポップ側の両方に項目を追加する必要があります。お知らせいただければ、両方まとめて対応します。</dd>
+
+  <dt>いまフォームを送信するとどうなりますか</dt>
+  <dd>設置が終わるまでは送信されず、「ただいまフォームの準備中です。お電話またはLINEからご連絡ください」と案内が表示されます。<b>問い合わせが黙って消えることはありません。</b></dd>
+</dl>
+
+<footer>
+  クリケア訪問看護ステーション フォーム設置の手順（ロリポップ方式）<br>
+  設置ファイル：kuricare-site ＞ tools ＞ lolipop-form ＞ kuricare-form.php / .htaccess<br>
+  本番への切り替えは「本番切り替えの手順」をご覧ください。
+</footer>
+
+</div>

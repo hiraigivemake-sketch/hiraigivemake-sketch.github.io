@@ -324,6 +324,10 @@ def enrich(node):
         out["is_select"] = kind == "select"
         out["is_radio"] = kind == "radio"
         out["is_text"] = kind in ("text", "tel", "email")
+        # スマホで住所録から素早く入力できるようにする
+        out["autocomplete"] = {
+            "name": "name", "tel": "tel", "email": "email",
+        }.get(out.get("key"), "off")
 
     return out
 

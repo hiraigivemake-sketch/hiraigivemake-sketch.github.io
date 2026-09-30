@@ -1,0 +1,17 @@
+# 控えファイルを外から見られないようにする設定です。
+# kuricare-form.php と同じ場所に置いてください。
+
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(txt|log)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "\.(txt|log)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+# _data フォルダそのものへのアクセスも禁止
+RedirectMatch 404 /_data(/.*)?$

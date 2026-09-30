@@ -7,17 +7,12 @@
   "seo_title": "お問い合わせフォーム｜クリケア訪問看護ステーション（奈良県香芝市）",
   "description": "訪問看護のご依頼・ご相談はこちらのフォームからお問い合わせください。",
   "hide_cta": true,
-  "google_form": {
-    "mode": "native",
-    "action": "",
-    "embed_url": "",
-    "entries": {
-      "name": "",
-      "tel": "",
-      "email": "",
-      "topic": "",
-      "message": ""
-    }
+  "consent": "に同意して",
+  "submit": "問い合わせる",
+  "form": {
+    "_note": "ロリポップに設置した受け取りプログラムのURLを endpoint に入れます。空のあいだは送信できません。",
+    "endpoint": "",
+    "id": "contact"
   },
   "fields": [
     {
@@ -59,7 +54,5 @@
       "required": false,
       "placeholder": "その他ご相談やご質問をこちらへご入力ください"
     }
-  ],
-  "consent": "に同意して",
-  "submit": "問い合わせる"
+  ]
 }

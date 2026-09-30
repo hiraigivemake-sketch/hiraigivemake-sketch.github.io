@@ -13,19 +13,12 @@
       "url": "https://lin.ee/mijVYce"
     }
   ],
-  "google_form": {
-    "mode": "native",
-    "action": "",
-    "embed_url": "",
-    "entries": {
-      "name": "",
-      "email": "",
-      "job": "",
-      "purpose": "",
-      "office": "",
-      "tel": "",
-      "message": ""
-    }
+  "consent": "に同意して",
+  "submit": "見学・面接を申し込む",
+  "form": {
+    "_note": "ロリポップに設置した受け取りプログラムのURLを endpoint に入れます。空のあいだは送信できません。",
+    "endpoint": "",
+    "id": "entry"
   },
   "fields": [
     {
@@ -92,7 +85,5 @@
       "required": false,
       "placeholder": ""
     }
-  ],
-  "consent": "に同意して",
-  "submit": "見学・面接を申し込む"
+  ]
 }

@@ -3,27 +3,32 @@
 
 <section class="section section--tight">
   <div class="container">
-    {{# page.google_form.embed_url }}
-    <div class="form-embed">
-      <iframe src="{{ page.google_form.embed_url }}" loading="lazy" title="{{ page.title }}">読み込んでいます…</iframe>
-    </div>
-    {{/ page.google_form.embed_url }}
+    <form class="form" method="post" action="{{ page.form.endpoint }}"
+          data-form="{{ page.form.id }}" data-endpoint="{{ page.form.endpoint }}">
 
-    {{^ page.google_form.embed_url }}
-    <form class="form" method="post" action="{{ page.google_form.action }}" target="kuricare-form-sink"
-          data-form="{{ page.slug }}" data-configured="{{ page.google_form.action }}">
+      <input type="hidden" name="_form" value="{{ page.form.id }}">
+      <input type="hidden" name="_t" value="0">
+      <input type="hidden" name="_ajax" value="0">
+
+      <!-- 迷惑送信よけ。人には見えません -->
+      <div class="hp" aria-hidden="true">
+        <label>この欄は入力しないでください
+          <input type="text" name="_check" tabindex="-1" autocomplete="off">
+        </label>
+      </div>
+
       {{# page.fields }}
       <div class="form__field">
         <label class="form__label" for="f-{{ key }}">
           {{ label }}{{# required }}<span class="req">必須</span>{{/ required }}{{^ required }}<span class="req req--optional">任意</span>{{/ required }}
         </label>
 
-        {{# is_text }}<input id="f-{{ key }}" type="{{ type }}" name="{{ entry_name }}" placeholder="{{ placeholder }}" {{# required }}required{{/ required }}>{{/ is_text }}
+        {{# is_text }}<input id="f-{{ key }}" type="{{ type }}" name="{{ key }}" placeholder="{{ placeholder }}" autocomplete="{{ autocomplete }}" {{# required }}required{{/ required }}>{{/ is_text }}
 
-        {{# is_textarea }}<textarea id="f-{{ key }}" name="{{ entry_name }}" placeholder="{{ placeholder }}" {{# required }}required{{/ required }}></textarea>{{/ is_textarea }}
+        {{# is_textarea }}<textarea id="f-{{ key }}" name="{{ key }}" placeholder="{{ placeholder }}" {{# required }}required{{/ required }}></textarea>{{/ is_textarea }}
 
         {{# is_select }}
-        <select id="f-{{ key }}" name="{{ entry_name }}" {{# required }}required{{/ required }}>
+        <select id="f-{{ key }}" name="{{ key }}" {{# required }}required{{/ required }}>
           <option value="">▼選択してください</option>
           {{# options }}<option value="{{ . }}">{{ . }}</option>{{/ options }}
         </select>
@@ -33,7 +38,7 @@
         <div style="display:grid;gap:4px;margin-top:4px">
           {{# options }}
           <label class="radio-option">
-            <input type="radio" name="{{ entry_name }}" value="{{ . }}" required><span>{{ . }}</span>
+            <input type="radio" name="{{ key }}" value="{{ . }}" required><span>{{ . }}</span>
           </label>
           {{/ options }}
         </div>
@@ -49,10 +54,8 @@
       <div class="form__submit">
         <button class="btn btn--fill btn--wide" type="submit">{{ page.submit }}</button>
       </div>
-      <p class="form__note form__status" role="status" aria-live="polite"></p>
+      <p class="form__status" role="status" aria-live="polite"></p>
     </form>
-    <iframe name="kuricare-form-sink" style="display:none" title="送信結果"></iframe>
-    {{/ page.google_form.embed_url }}
   </div>
 </section>
 {{> foot }}
