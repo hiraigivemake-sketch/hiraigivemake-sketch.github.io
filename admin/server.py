@@ -1071,17 +1071,17 @@ class Handler(BaseHTTPRequestHandler):
                     target = CONTENT / kind / filename
                     if target.exists():
                         return self.send_json({"ok": False, "error": "同じ名前の記事がすでにあります"})
-                    redirect = f"/post/{kind}/{urllib.parse.quote(filename)}"
                 else:
                     _, _, _, kind, filename = p.split("/", 4)
                     target = CONTENT / kind / filename
                     old_meta, _ = read_post(target)
                     meta = {**old_meta, **meta}
-                    redirect = None
+                # 保存したら記事の一覧に戻る（どこに入ったかが分かるように）
+                redirect = f"/list/{kind}"
                 write_post(target, meta, body)
                 ok, msg = run_build()
                 res = {"ok": ok, "message": msg} if ok else {"ok": False, "error": msg}
-                if ok and redirect:
+                if ok:
                     res["redirect"] = redirect
                 return self.send_json(res)
 
