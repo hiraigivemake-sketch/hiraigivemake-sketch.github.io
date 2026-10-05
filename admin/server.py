@@ -714,7 +714,7 @@ def view_list(kind: str) -> str:
   {img}
   <div class="list__main">
     <div class="list__title">{esc(meta.get("title", p.stem))}{badge}</div>
-    <div class="list__meta">{esc(meta.get("date", ""))}</div>
+    <div class="list__meta">{esc(meta.get("date", ""))}{esc(" " + builder.clean_time(meta.get("time", "")) if builder.clean_time(meta.get("time", "")) else "")}</div>
   </div>
   <a class="btn btn--sm" href="/post/{kind}/{urllib.parse.quote(p.name)}">編集</a>
 </div>""")
@@ -790,6 +790,20 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
 
     title = "新しい記事" if is_new else "記事の編集"
     url = f"/api/new/{kind}" if is_new else f"/api/post/{kind}/{urllib.parse.quote(filename)}"
+
+    # いま公開中なのか、これから公開されるのかを、編集画面でも分かるようにする
+    pdate = str(meta.get("date", ""))
+    ptime = builder.clean_time(meta.get("time", ""))
+    if is_new:
+        status = ""
+    elif builder.is_scheduled(pdate, ptime):
+        when = pdate.replace("-", "/") + (f" {ptime}" if ptime else " 0:00")
+        status = (f'<p class="status status--wait">公開予定です　'
+                  f'<strong>{esc(when)}</strong> に自動で公開されます。'
+                  f'それまで公開サイトには出ません。</p>')
+    else:
+        status = ('<p class="status status--live">公開中です　'
+                  '保存すると、その内容がすぐ反映されます。</p>')
     delete = "" if is_new else f"""
 <div class="section" style="margin-top:24px">
   <div class="section__body" style="border-top:0;padding-top:18px">
@@ -803,6 +817,7 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
     return f"""
 <h1 class="page-title">{title}</h1>
 <p class="page-note">{esc(filename or "新しく作成します")}</p>
+{status}
 
 <details class="section" open>
   <summary>記事の情報</summary>
