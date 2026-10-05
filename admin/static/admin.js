@@ -691,22 +691,33 @@
       if (clearBtn) clearBtn.hidden = !q;
     }
 
-    filter.addEventListener("input", applyFilter);
+    // ご本人が操作したかどうかは「キーを押したか」で見分ける。
+    // ブラウザの自動入力は、人が打ったときと同じ合図を出すため、それでは区別できない。
+    // beforeinput は、人が打つ・貼る・日本語変換する場合には必ず出るが、
+    // ブラウザの自動入力では出ない。これで確実に見分けられる。
+    var typed = false;
+    ["beforeinput", "keydown", "paste", "cut", "drop"].forEach(function (ev) {
+      filter.addEventListener(ev, function () { typed = true; });
+    });
+
+    filter.addEventListener("input", function () {
+      if (!typed) {
+        // キーを押していないのに文字が入った＝ブラウザが勝手に入れたもの
+        filter.value = "";
+        applyFilter();
+        return;
+      }
+      applyFilter();
+    });
+
     if (clearBtn) clearBtn.addEventListener("click", function () {
       filter.value = "";
+      typed = false;
       applyFilter();
       filter.focus();
     });
 
-    // ブラウザが前回の入力を勝手に戻すことがある。戻ってくる時機がまちまちなので、
-    // 開いた直後からしばらくの間、何度か消す。
-    // ただし、ご本人が打ち始めたあとは絶対に消さない。
-    var typed = false;
-    ["keydown", "paste", "cut"].forEach(function (ev) {
-      filter.addEventListener(ev, function () { typed = true; });
-    });
-    filter.addEventListener("input", function (e) { if (e.isTrusted) typed = true; });
-
+    // 画面を開いた直後・戻ってきた直後にも、入っていれば消す
     function forceEmpty() {
       if (!typed && filter.value !== "") { filter.value = ""; applyFilter(); }
     }
