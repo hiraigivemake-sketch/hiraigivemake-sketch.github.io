@@ -3,65 +3,231 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>訪問スケジュール — データ構造 v1</title>
+<title>訪問スケジュール</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --ink:#1f2937; --sub:#6b7280; --line:#e5e7eb; --ok:#15803d; --ng:#b91c1c; --accent:#2563eb; }
+  :root { --bg:#f4f5f7; --card:#fff; --ink:#1f2937; --sub:#6b7280; --line:#e5e7eb; --ok:#15803d; --ng:#b91c1c; --warn:#b45309; --accent:#2563eb; --today:#eff6ff; --off:#f9fafb; --hol:#fff1f2; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; }
-  header { background:#fff; border-bottom:1px solid var(--line); padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0; }
-  header .ver { font-size:12px; color:var(--sub); }
-  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
-  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:18px; }
-  h2 { font-size:16px; margin:0 0 10px; }
-  table { border-collapse:collapse; width:100%; font-size:13px; }
-  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
-  th { background:#f9fafb; font-weight:600; white-space:nowrap; }
-  code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; background:#f3f4f6; padding:1px 4px; border-radius:4px; }
-  .ok { color:var(--ok); font-weight:600; }
-  .ng { color:var(--ng); font-weight:600; }
-  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-  button { font:inherit; font-size:13px; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; }
+  html, body { margin:0; }
+  body { font-family:-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif; background:var(--bg); color:var(--ink); line-height:1.5; font-size:14px; }
+  [hidden] { display:none !important; }
+  button { font:inherit; font-size:13px; padding:5px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; color:var(--ink); }
+  button:hover { background:#f3f4f6; }
   button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.primary:hover { background:#1d4ed8; }
   button.danger { color:var(--ng); }
-  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow:auto; font-size:12px; max-height:360px; }
+  button.small { padding:3px 8px; font-size:12px; }
+  button.linkish { border:none; background:none; color:var(--accent); padding:0; font-size:inherit; text-decoration:underline; }
+  button.linkish:hover { background:none; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  select, input[type=date], input[type=time], textarea { font:inherit; font-size:13px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:#fff; color:var(--ink); }
+  code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; background:#f3f4f6; padding:1px 4px; border-radius:4px; }
   .muted { color:var(--sub); font-size:12px; }
+  .ok { color:var(--ok); font-weight:600; } .ng { color:var(--ng); font-weight:600; }
+  .spacer { flex:1; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+
+  /* ヘッダー */
+  .topbar { background:#fff; border-bottom:1px solid var(--line); padding:8px 16px; position:sticky; top:0; z-index:20; }
+  .row1, .row2 { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .row2 { margin-top:6px; }
+  .topbar h1 { font-size:17px; margin:0 12px 0 0; }
+  .tabs, .seg { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .tabs button, .seg button { border:none; border-radius:0; padding:5px 14px; }
+  .tabs button.active, .seg button.active { background:var(--accent); color:#fff; }
+  .nav { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .nav-title { font-weight:600; margin:0 6px; }
+  .actions { margin-left:auto; display:flex; gap:8px; }
+  .summary { font-size:12px; color:var(--sub); margin-left:auto; }
+  .summary b { color:var(--ink); }
+  .chk { display:inline-flex; align-items:center; gap:4px; font-size:13px; }
+
+  main { padding:12px 16px 60px; }
+  #view { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .empty { padding:40px 20px; text-align:center; color:var(--sub); }
+
+  /* 共通: 訪問チップ・ブロック */
+  .tag { display:inline-block; font-size:10px; line-height:1.3; padding:0 4px; border-radius:3px; background:#e5e7eb; color:#374151; margin-right:2px; vertical-align:middle; }
+  .tag.svc-nursing { background:#dbeafe; color:#1e40af; }
+  .tag.svc-rehab { background:#fef3c7; color:#92400e; }
+  .tag.em { background:#fee2e2; color:#991b1b; }
+  .vblock, .chip { background:#eef2ff; }
+  .vblock.st-confirmed, .chip.st-confirmed { background:#e0e7ff; font-weight:600; }
+  .vblock.st-done, .chip.st-done { background:#dcfce7; }
+  .vblock.st-cancelled, .chip.st-cancelled { background:#f3f4f6; color:#9ca3af; text-decoration:line-through; }
+  .vblock.st-transferred, .chip.st-transferred { background:#f3f4f6; color:#9ca3af; border-left-style:dashed; }
+  .conflict { box-shadow:inset 0 0 0 2px var(--ng); }
+
+  /* 日 */
+  .day-wrap { overflow:auto; max-height:calc(100vh - 150px); }
+  .day-grid { display:grid; min-width:100%; }
+  .day-corner, .day-head-cell { position:sticky; top:0; z-index:5; background:#f9fafb; border-bottom:1px solid var(--line); padding:6px 8px; font-size:13px; }
+  .day-head-cell { border-left:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .day-head-cell small { color:var(--sub); margin-left:4px; }
+  .day-head-cell .cnt { float:right; color:var(--sub); font-size:12px; }
+  .time-col { position:relative; background-image:linear-gradient(var(--line) 1px, transparent 1px); background-size:100% 60px; }
+  .hour-label { position:absolute; right:6px; font-size:11px; color:var(--sub); transform:translateY(-50%); background:#fff; padding:0 2px; }
+  .hour-label.first { transform:translateY(2px); }
+  .hour-label.last { transform:translateY(calc(-100% - 2px)); }
+  .day-col { position:relative; border-left:1px solid var(--line); cursor:cell; background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(#f3f4f6 1px, transparent 1px); background-size:100% 60px, 100% 30px; }
+  .day-col:hover { background-color:#fafbff; }
+  .vblock { position:absolute; border-left:4px solid; border-radius:5px; padding:2px 5px; font-size:11px; line-height:1.3; overflow:hidden; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+  .vblock:hover { filter:brightness(.97); z-index:3; }
+  .vb-time { color:var(--sub); }
+  .vb-name { font-weight:600; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* 週 */
+  .week-wrap { overflow:auto; max-height:calc(100vh - 150px); }
+  table.week { border-collapse:separate; border-spacing:0; width:100%; min-width:960px; font-size:12px; }
+  table.week th, table.week td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); vertical-align:top; }
+  table.week thead th { position:sticky; top:0; background:#f9fafb; z-index:5; padding:6px; text-align:center; font-weight:600; }
+  table.week th.rowhead { text-align:left; padding:6px 8px; min-width:150px; background:#f9fafb; position:sticky; left:0; z-index:4; }
+  table.week thead th.corner { z-index:6; left:0; }
+  table.week th.rowhead small { display:block; color:var(--sub); font-weight:normal; }
+  .rowsum { color:var(--sub); font-weight:normal; font-size:11px; }
+  table.week td.cell { padding:3px; min-width:120px; height:56px; }
+  .hol { color:var(--ng); font-size:11px; font-weight:normal; }
+  .col-off { background:var(--off); } .col-holiday { background:var(--hol); } .col-today { background:var(--today); }
+  .chip { display:block; width:100%; text-align:left; border:1px solid transparent; border-left:3px solid; border-radius:4px; padding:2px 5px; margin-bottom:2px; font-size:11px; line-height:1.4; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .chip:hover { filter:brightness(.97); }
+  .c-time { color:var(--sub); }
+  .c-tags { margin-left:4px; }
+  button.add { border:none; background:none; color:var(--sub); font-size:12px; padding:0 4px; opacity:0; }
+  td.cell:hover button.add, .mcell:hover button.add, button.add:focus { opacity:1; }
+
+  /* 月 */
+  .month-head { display:grid; grid-template-columns:repeat(7,1fr); background:#f9fafb; border-bottom:1px solid var(--line); font-size:12px; text-align:center; }
+  .month-head div { padding:6px; }
+  .month { display:grid; grid-template-columns:repeat(7,1fr); }
+  .mcell { min-height:110px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:4px; font-size:11px; min-width:0; }
+  .mcell:nth-child(7n) { border-right:none; }
+  .mcell.other { background:#fafafa; color:#9ca3af; }
+  .mday { display:flex; align-items:center; gap:4px; margin-bottom:3px; }
+  .daynum { border:none; background:none; font-weight:600; font-size:13px; padding:0 5px; border-radius:50%; }
+  .daynum:hover { background:#e5e7eb; }
+  .mcell.col-today .daynum { background:var(--accent); color:#fff; }
+  .mcount { color:var(--sub); margin-left:auto; }
+  .more { border:none; background:none; color:var(--accent); font-size:11px; padding:0 4px; }
+
+  /* データ */
+  #data-view section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:18px; }
+  #data-view h2 { font-size:16px; margin:0 0 10px; }
+  table.plain { border-collapse:collapse; width:100%; font-size:13px; }
+  table.plain th, table.plain td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  table.plain th { background:#f9fafb; font-weight:600; white-space:nowrap; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow:auto; font-size:12px; max-height:360px; }
   .counts span { display:inline-block; margin-right:14px; }
+  .banner { background:#fef3c7; border:1px solid #f59e0b; color:#92400e; padding:8px 12px; border-radius:8px; margin-bottom:12px; }
+
+  /* モーダル */
+  .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,.4); display:flex; align-items:center; justify-content:center; z-index:50; padding:12px; }
+  .modal { background:#fff; width:min(680px,100%); max-height:92vh; overflow:auto; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.25); }
+  .modal-head { display:flex; align-items:center; justify-content:space-between; padding:12px 18px; border-bottom:1px solid var(--line); }
+  .modal-head h3 { margin:0; font-size:16px; }
+  #modal-close { border:none; background:none; font-size:20px; line-height:1; padding:2px 6px; }
+  .modal-body { padding:14px 18px 18px; }
+  .status-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#e5e7eb; }
+  .badge.st-planned { background:#dbeafe; } .badge.st-confirmed { background:#c7d2fe; } .badge.st-done { background:#dcfce7; }
+  .panel { background:#f9fafb; border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
+  .panel label, .grid2 label { display:flex; flex-direction:column; font-size:12px; color:var(--sub); gap:3px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+  .grid2 label.chk, .panel label.chk { flex-direction:row; align-items:center; color:var(--ink); font-size:13px; }
+  .grid2 .wide { grid-column:1 / -1; }
+  .readout { font-size:14px; color:var(--ink); padding:5px 0; }
+  .hint { font-size:12px; color:var(--warn); margin-bottom:8px; }
+  .msgs { margin:10px 0 0; padding:8px 12px 8px 28px; border-radius:8px; font-size:13px; }
+  .msgs.err { background:#fee2e2; color:#991b1b; } .msgs.warn { background:#fef3c7; color:#92400e; }
+  .modal-foot { display:flex; gap:8px; align-items:center; margin-top:14px; }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#1f2937; color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; z-index:60; box-shadow:0 4px 16px rgba(0,0,0,.3); max-width:90vw; }
+
+  @media (max-width:640px) { .grid2 { grid-template-columns:1fr; } .topbar h1 { display:none; } .actions { margin-left:0; } .summary { margin-left:0; } }
+  @media print {
+    .tabs, .actions, .row2 select, .row2 .chk, .nav button, #date-input, #week-mode, button.add, .toast, .modal-bg { display:none !important; }
+    body { background:#fff; } .topbar { position:static; border:none; } main { padding:0; }
+    .day-wrap, .week-wrap { max-height:none; overflow:visible; } #view { border:none; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>訪問スケジュール</h1>
-  <span class="ver">データ構造 v1（画面は未実装。この画面はデータ層の確認用）</span>
+<header class="topbar">
+  <div class="row1">
+    <h1>訪問スケジュール</h1>
+    <nav class="tabs" aria-label="表示切替">
+      <button type="button" data-view="day">日</button>
+      <button type="button" data-view="week">週</button>
+      <button type="button" data-view="month">月</button>
+      <button type="button" data-view="data">データ</button>
+    </nav>
+    <div id="nav" class="nav">
+      <button type="button" id="nav-prev" title="前へ">‹</button>
+      <button type="button" id="nav-today">今日</button>
+      <button type="button" id="nav-next" title="次へ">›</button>
+      <span id="nav-title" class="nav-title"></span>
+      <input type="date" id="date-input" aria-label="日付">
+      <div id="week-mode" class="seg" hidden>
+        <button type="button" data-mode="staff">スタッフ別</button>
+        <button type="button" data-mode="patient">利用者別</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-expand" hidden title="有効な訪問計画をこの月の予定として作成します">計画を展開</button>
+      <button type="button" id="btn-add" class="primary">＋ 訪問を追加</button>
+    </div>
+  </div>
+  <div id="filters" class="row2">
+    <select id="f-staff" aria-label="スタッフで絞り込み"></select>
+    <select id="f-patient" aria-label="利用者で絞り込み"></select>
+    <select id="f-service" aria-label="種別で絞り込み">
+      <option value="">看護・リハビリ</option>
+      <option value="nursing">看護のみ</option>
+      <option value="rehab">リハビリのみ</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="f-inactive"> キャンセル・振替元も表示</label>
+    <span id="summary" class="summary"></span>
+  </div>
 </header>
 <main>
-  <section>
-    <h2>1. データ構造の概要</h2>
-    <p class="muted">保存は localStorage の1キー（<code id="storage-key"></code>）にJSONで保存します。各エンティティの項目一覧は <code>データ構造.md</code> を参照。</p>
-    <div id="schema"></div>
-  </section>
-  <section>
-    <h2>2. セルフテスト</h2>
-    <p class="muted">日付計算・検証・参照整合性・計画展開・保存の往復をブラウザ内で検査します。すべて合格であることを確認してから画面実装に進みます。</p>
-    <div id="test-summary"></div>
-    <table id="test-table"><thead><tr><th>結果</th><th>テスト</th><th>詳細</th></tr></thead><tbody></tbody></table>
-  </section>
-  <section>
-    <h2>3. 保存データの操作</h2>
-    <div class="btns">
-      <button class="primary" id="btn-sample">サンプルデータを読み込む（架空）</button>
-      <button id="btn-export">JSONを書き出す</button>
-      <label><button type="button" onclick="document.getElementById('file-import').click()">JSONを読み込む</button><input type="file" id="file-import" accept="application/json" hidden></label>
-      <button class="danger" id="btn-clear">保存データを全削除</button>
-    </div>
-    <div class="counts" id="counts"></div>
-    <div id="db-errors"></div>
-    <pre id="db-preview"></pre>
+  <div id="view"></div>
+  <section id="data-view" hidden>
+    <div id="load-banner" class="banner" hidden></div>
+    <section>
+      <h2>保存データ</h2>
+      <p class="muted">保存先はこのブラウザの localStorage（キー <code id="storage-key"></code>）です。別の端末やブラウザとは共有されません。月に一度はJSONを書き出して保管してください。</p>
+      <div class="btns">
+        <button type="button" class="primary" id="btn-sample">サンプルデータを読み込む（架空）</button>
+        <button type="button" id="btn-export">JSONを書き出す</button>
+        <button type="button" id="btn-import">JSONを読み込む</button>
+        <input type="file" id="file-import" accept="application/json,.json" hidden>
+        <button type="button" class="danger" id="btn-clear">保存データを全削除</button>
+      </div>
+      <div class="counts" id="counts"></div>
+      <div id="db-errors"></div>
+      <pre id="db-preview"></pre>
+    </section>
+    <section>
+      <h2>データ構造の概要</h2>
+      <p class="muted">各エンティティの項目一覧は <code>データ構造.md</code> を参照。</p>
+      <div id="schema"></div>
+    </section>
+    <section>
+      <h2>セルフテスト</h2>
+      <p class="muted">日付計算・検証・参照整合性・計画展開・保存の往復・画面用関数をこのブラウザで検査します。</p>
+      <div id="test-summary"></div>
+      <table class="plain" id="test-table"><thead><tr><th>結果</th><th>テスト</th><th>詳細</th></tr></thead><tbody></tbody></table>
+    </section>
   </section>
 </main>
+<div id="toast" class="toast" hidden></div>
+<div id="modal" class="modal-bg" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head"><h3 id="modal-title"></h3><button type="button" id="modal-close" aria-label="閉じる">×</button></div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
 
 <!-- =====================================================================
-     データ層（ここから）。画面実装が入っても、この <script id="vs-data"> は
+     データ層（ここから）。画面実装が入っても、このブロックは
      純粋なデータ定義・検証・保存のみに保ち、DOM には触れない。
      ===================================================================== -->
 <script id="vs-data">
@@ -176,10 +342,13 @@ function timeBandOf(start) {
 /* ------------------------------------------------------------------
  * 2. ID・時刻印
  * ------------------------------------------------------------------ */
+let idSeq = 0;
 function genId(prefix) {
+  idSeq = (idSeq + 1) % 1296;                          // 36の2乗。同一ミリ秒内でも連番で区別する
   const t = Date.now().toString(36);
+  const c = idSeq.toString(36).padStart(2, '0');
   const r = Math.random().toString(36).slice(2, 6).padEnd(4, '0');
-  return `${prefix}_${t}${r}`;
+  return `${prefix}_${t}${c}${r}`;
 }
 function nowIso() { return new Date().toISOString(); }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -196,7 +365,8 @@ function createEmptyDb() {
       businessDows: [1, 2, 3, 4, 5],          // 営業曜日（0=日）
       dayStart: '08:00', dayEnd: '20:00',     // 画面の時間軸
       slotMin: 15,                             // 時間入力の刻み
-      defaultDurationMin: 60
+      defaultDurationMin: 60,
+      weekStartDow: 1                          // 週表示の開始曜日（0=日）
     },
     holidays: [],      // Holiday[]
     patients: [],      // Patient[]
@@ -485,6 +655,7 @@ function validateDb(db) {
     if (!isTimeStr(s.dayStart) || !isTimeStr(s.dayEnd) || toMin(s.dayStart) >= toMin(s.dayEnd)) e.push({ path: 'settings.dayStart', msg: '時間軸の範囲が不正です' });
     if (![5, 10, 15, 30, 60].includes(s.slotMin)) e.push({ path: 'settings.slotMin', msg: '刻みは 5/10/15/30/60 分です' });
     if (!isInt(s.defaultDurationMin) || s.defaultDurationMin <= 0) e.push({ path: 'settings.defaultDurationMin', msg: '既定所要時間が不正です' });
+    if (!isInt(s.weekStartDow) || s.weekStartDow < 0 || s.weekStartDow > 6) e.push({ path: 'settings.weekStartDow', msg: '週の開始曜日は0〜6です' });
   }
   if (e.length) return e;   // 骨格が壊れていれば以降は見ない
 
@@ -629,6 +800,7 @@ function expandPlan(db, plan, year, month) {
   const patient = db.patients.find(p => p.id === plan.patientId);
   const visits = [], skipped = [];
   if (!patient) return { visits, skipped: [{ date: null, reason: 'noPatient' }] };
+  if (patient.archived) return { visits, skipped: [{ date: null, reason: 'patientArchived' }] };
   const r = plan.recurrence;
   for (const date of monthDates(year, month)) {
     if (dowOf(date) !== plan.dow) continue;
@@ -737,6 +909,17 @@ const visits = Object.assign(makeRepo('visits', validateVisit, '訪問'), {
     return after;
   }
 });
+/* 有効な全計画を指定月に展開して DB に追加する。{ added, skipped } を返す（skipped には planId 付き） */
+function expandMonth(db, year, month) {
+  const added = [], skipped = [];
+  for (const plan of db.plans) {
+    if (plan.archived) continue;
+    const r = expandPlan(db, plan, year, month);
+    r.visits.forEach(v => { visits.add(db, v); added.push(v); });
+    r.skipped.forEach(s => skipped.push(Object.assign({ planId: plan.id }, s)));
+  }
+  return { added, skipped };
+}
 const holidays = {
   add(db, h) {
     const errs = validateHoliday(h);
@@ -858,10 +1041,7 @@ function buildSampleDb(year, month) {
   const thirdWed = monthDates(year, month).filter(d => dowOf(d) === 3)[2];
   if (thirdWed) holidays.add(db, createHoliday({ date: thirdWed, name: '事業所研修日（架空）', kind: 'office' }));
 
-  for (const pl of db.plans) {
-    const { visits: vs } = expandPlan(db, pl, year, month);
-    vs.forEach(v => visits.add(db, v));
-  }
+  expandMonth(db, year, month);
   return db;
 }
 
@@ -878,13 +1058,115 @@ const VS = {
   validate: { patient: validatePatient, staff: validateStaff, plan: validatePlan, visit: validateVisit, holiday: validateHoliday, db: validateDb },
   derive: { visitDurationMin, visitTimeBand, isLongVisit, isTwoStaffVisit, isActiveVisit, patientDisplayName, staffDisplayName,
             patientStatusOn, hasValidInstruction, isHoliday, isBusinessDay, staffAvailable },
-  rules: { findStaffConflicts, findPatientConflicts, checkVisitRules, changeVisitStatus, expandPlan },
+  rules: { findStaffConflicts, findPatientConflicts, checkVisitRules, changeVisitStatus, expandPlan, expandMonth },
   repo: { patients, staff, plans, visits, holidays, pushHistory },
   store: { load, save, clear, parseDb, exportJson, serialize, migrate },
   sample: { build: buildSampleDb },
   ValidationError
 };
 root.VS = VS;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<!-- =====================================================================
+     画面用の純粋関数。DOM には触れない（Node でもテストできる）。
+     ===================================================================== -->
+<script id="vs-ui">
+(function (root) {
+'use strict';
+const VS = root.VS;
+const pad2 = n => String(n).padStart(2, '0');
+const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
+
+function fmtDateJa(s) { const [y, m, d] = s.split('-').map(Number); return `${y}年${m}月${d}日（${DOW_JA[VS.date.dowOf(s)]}）`; }
+function fmtMD(s) { const [, m, d] = s.split('-').map(Number); return `${m}/${d}`; }
+function fmtHours(min) { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}時間${m ? m + '分' : ''}` : `${m}分`; }
+function ym(s) { return { y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)) }; }
+function addMonths(y, m, n) { const d = new Date(y, m - 1 + n, 1); return { y: d.getFullYear(), m: d.getMonth() + 1 }; }
+
+/* 指定日を含む週の7日（weekStartDow 始まり） */
+function weekRange(date, weekStartDow) {
+  const offset = (VS.date.dowOf(date) - weekStartDow + 7) % 7;
+  const start = VS.date.addDays(date, -offset);
+  return Array.from({ length: 7 }, (_, i) => VS.date.addDays(start, i));
+}
+/* 月カレンダーの日付配列（前後月の日で埋めて7の倍数） */
+function monthGrid(y, m, weekStartDow) {
+  const first = `${y}-${pad2(m)}-01`;
+  const last = `${y}-${pad2(m)}-${pad2(VS.date.daysInMonth(y, m))}`;
+  const start = weekRange(first, weekStartDow)[0];
+  const end = weekRange(last, weekStartDow)[6];
+  const n = VS.date.diffDays(start, end) + 1;
+  return { dates: Array.from({ length: n }, (_, i) => VS.date.addDays(start, i)), rows: n / 7, first, last };
+}
+
+const byStart = (a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : a.end < b.end ? -1 : a.end > b.end ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+const byDateStart = (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : byStart(a, b);
+
+/* 画面のフィルタ条件に合うか。staffId '__none__' は未割当のみ */
+function matchesFilter(v, f) {
+  if (f.staffId === '__none__') { if (v.staffIds.length) return false; }
+  else if (f.staffId && !v.staffIds.includes(f.staffId)) return false;
+  if (f.patientId && v.patientId !== f.patientId) return false;
+  if (f.serviceType && v.serviceType !== f.serviceType) return false;
+  if (!f.showInactive && !VS.derive.isActiveVisit(v)) return false;
+  return true;
+}
+function visitsBetween(db, from, to, f) { return db.visits.filter(v => v.date >= from && v.date <= to && matchesFilter(v, f)).sort(byDateStart); }
+function visitsOn(db, date, f) { return visitsBetween(db, date, date, f); }
+
+/* 同じ列で時間が重なる訪問を横に並べるためのレーン割当。[{ item, lane, laneCount }] */
+function layoutLanes(items) {
+  const sorted = items.slice().sort(byStart);
+  const out = [];
+  let cluster = [], clusterEnd = -1, laneEnds = [];
+  const flush = () => { const n = laneEnds.length; cluster.forEach(c => { c.laneCount = n; out.push(c); }); cluster = []; laneEnds = []; clusterEnd = -1; };
+  for (const item of sorted) {
+    const s = VS.time.toMin(item.start), e = VS.time.toMin(item.end);
+    if (cluster.length && s >= clusterEnd) flush();
+    let lane = laneEnds.findIndex(end => end <= s);
+    if (lane < 0) { lane = laneEnds.length; laneEnds.push(e); } else laneEnds[lane] = e;
+    cluster.push({ item, lane, laneCount: 0 });
+    clusterEnd = Math.max(clusterEnd, e);
+  }
+  if (cluster.length) flush();
+  return out;
+}
+/* 時間軸の範囲（分）。設定の範囲からはみ出す訪問があれば広げ、1時間単位に丸める */
+function axisRange(settings, visits) {
+  let s = VS.time.toMin(settings.dayStart), e = VS.time.toMin(settings.dayEnd);
+  for (const v of visits) { s = Math.min(s, VS.time.toMin(v.start)); e = Math.max(e, VS.time.toMin(v.end)); }
+  return { startMin: Math.floor(s / 60) * 60, endMin: Math.min(24 * 60, Math.ceil(e / 60) * 60) };
+}
+/* 同日で担当または利用者の時間が重なっている訪問の id 集合（キャンセル・振替元は除く） */
+function conflictIds(visits) {
+  const ids = new Set(), byDate = new Map();
+  for (const v of visits) {
+    if (!VS.derive.isActiveVisit(v)) continue;
+    if (!byDate.has(v.date)) byDate.set(v.date, []);
+    byDate.get(v.date).push(v);
+  }
+  for (const list of byDate.values()) {
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j];
+      if (!VS.time.rangesOverlap(a.start, a.end, b.start, b.end)) continue;
+      if (a.patientId === b.patientId || a.staffIds.some(id => b.staffIds.includes(id))) { ids.add(a.id); ids.add(b.id); }
+    }
+  }
+  return ids;
+}
+function summarize(visits) {
+  const s = { count: 0, minutes: 0, nursing: 0, rehab: 0, unassigned: 0, inactive: 0 };
+  for (const v of visits) {
+    if (!VS.derive.isActiveVisit(v)) { s.inactive++; continue; }
+    s.count++; s.minutes += VS.derive.visitDurationMin(v); s[v.serviceType]++;
+    if (!v.staffIds.length) s.unassigned++;
+  }
+  return s;
+}
+function snapMin(min, step) { return Math.floor(min / step) * step; }
+
+root.VS_UI = { DOW_JA, fmtDateJa, fmtMD, fmtHours, ym, addMonths, weekRange, monthGrid, byStart, matchesFilter, visitsBetween, visitsOn, layoutLanes, axisRange, conflictIds, summarize, snapMin };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
@@ -1105,6 +1387,72 @@ t('ID: 連続生成で重複しない', () => {
   const s = new Set(); for (let i = 0; i < 2000; i++) s.add(VS.genId('v')); eq(s.size, 2000);
 });
 
+/* --- 一括展開 --- */
+t('展開: 全計画の一括展開と再実行の冪等性', () => {
+  const db = VS.sample.build(2026, 10);
+  db.visits = []; db.history = [];
+  const r1 = VS.rules.expandMonth(db, 2026, 10);
+  eq(r1.added.length, 11); eq(db.visits.length, 11);
+  ok(r1.skipped.some(s => s.reason === 'holiday' && s.planId === 'pl_sample4'));
+  ok(r1.skipped.some(s => s.reason === 'patientStatus' && s.planId === 'pl_sample3'));
+  const r2 = VS.rules.expandMonth(db, 2026, 10);
+  eq(r2.added.length, 0); eq(r2.skipped.filter(s => s.reason === 'exists').length, 11);
+  VS.repo.patients.archive(db, 'p_sample3');
+  const r3 = VS.rules.expandMonth(db, 2026, 11);
+  ok(r3.skipped.some(s => s.reason === 'patientArchived' && s.planId === 'pl_sample4'), '無効化した利用者の計画は展開しない');
+  eq(VS.validate.db(db), []);
+});
+
+/* --- 画面用の純粋関数 --- */
+t('画面: 週の範囲（月曜始まり・日曜始まり）', () => {
+  const UI = root.VS_UI;
+  eq(UI.weekRange('2026-10-05', 1)[0], '2026-10-05'); eq(UI.weekRange('2026-10-04', 1)[0], '2026-09-28'); eq(UI.weekRange('2026-10-04', 1)[6], '2026-10-04');
+  eq(UI.weekRange('2026-10-05', 0)[0], '2026-10-04'); eq(UI.weekRange('2026-10-05', 0)[6], '2026-10-10');
+});
+t('画面: 月グリッドは前後月で埋めて7の倍数', () => {
+  const UI = root.VS_UI;
+  const g = UI.monthGrid(2026, 10, 1);
+  eq(g.dates[0], '2026-09-28'); eq(g.dates[g.dates.length - 1], '2026-11-01'); eq(g.rows, 5); eq(g.first, '2026-10-01'); eq(g.last, '2026-10-31');
+  eq(UI.monthGrid(2027, 2, 1).rows, 4, '2027年2月は月曜始まりでちょうど4週');
+  eq(UI.monthGrid(2026, 8, 0).rows, 6, '2026年8月は日曜始まりで6週');
+  eq(UI.addMonths(2026, 12, 1), { y: 2027, m: 1 }); eq(UI.addMonths(2026, 1, -1), { y: 2025, m: 12 });
+});
+t('画面: 重なりのレーン配置', () => {
+  const UI = root.VS_UI;
+  const mk = (id, start, end) => ({ id, start, end });
+  const out = UI.layoutLanes([mk('a', '10:00', '11:00'), mk('b', '10:30', '11:30'), mk('c', '11:00', '12:00'), mk('d', '13:00', '14:00')]);
+  const by = Object.fromEntries(out.map(o => [o.item.id, o]));
+  eq([by.a.lane, by.b.lane, by.c.lane, by.d.lane], [0, 1, 0, 0]);
+  eq([by.a.laneCount, by.b.laneCount, by.c.laneCount, by.d.laneCount], [2, 2, 2, 1]);
+  eq(UI.layoutLanes([]), []);
+});
+t('画面: 時間軸は訪問がはみ出せば広がる', () => {
+  const UI = root.VS_UI;
+  const st = { dayStart: '08:00', dayEnd: '20:00' };
+  eq(UI.axisRange(st, []), { startMin: 480, endMin: 1200 });
+  eq(UI.axisRange(st, [{ start: '07:15', end: '07:45' }, { start: '21:30', end: '22:10' }]), { startMin: 420, endMin: 1380 });
+  eq(UI.axisRange(st, [{ start: '23:30', end: '24:00' }]).endMin, 1440);
+});
+t('画面: フィルタと重複検出と集計', () => {
+  const UI = root.VS_UI;
+  const db = VS.sample.build(2026, 10);
+  const base = { staffId: '', patientId: '', serviceType: '', showInactive: false };
+  const v = db.visits.find(x => x.planId === 'pl_sample1');
+  ok(UI.matchesFilter(v, base)); ok(UI.matchesFilter(v, { ...base, staffId: 's_sample1' })); ok(!UI.matchesFilter(v, { ...base, staffId: 's_sample2' }));
+  ok(!UI.matchesFilter(v, { ...base, staffId: '__none__' })); ok(!UI.matchesFilter(v, { ...base, serviceType: 'rehab' }));
+  const c = VS.repo.visits.setStatus(db, v.id, 'cancelled', { cancelReason: 'patient' });
+  ok(!UI.matchesFilter(c, base)); ok(UI.matchesFilter(c, { ...base, showInactive: true }));
+  const dup = VS.repo.visits.add(db, VS.create.visit({ date: v.date, start: v.start, end: v.end, patientId: 'p_sample2', staffIds: ['s_sample1'] }));
+  const w = db.visits.find(x => x.planId === 'pl_sample1' && x.id !== v.id);
+  const dup2 = VS.repo.visits.add(db, VS.create.visit({ date: w.date, start: w.start, end: w.end, patientId: 'p_sample2', staffIds: ['s_sample1'] }));
+  const ids = UI.conflictIds(db.visits);
+  ok(!ids.has(v.id), 'キャンセル済みは重複に数えない'); ok(!ids.has(dup.id)); ok(ids.has(w.id)); ok(ids.has(dup2.id));
+  const s = UI.summarize(UI.visitsOn(db, w.date, { ...base, showInactive: true }));
+  eq([s.count, s.nursing, s.unassigned], [2, 2, 0]);
+  eq(UI.visitsOn(db, v.date, base).map(x => x.id), [dup.id], 'キャンセル済みは既定で隠れる');
+  eq(UI.snapMin(617, 15), 615); eq(UI.snapMin(600, 15), 600);
+});
+
 function run() {
   return tests.map(({ name, fn }) => { try { fn(); return { name, ok: true, detail: '' }; } catch (e) { return { name, ok: false, detail: e.message }; } });
 }
@@ -1112,58 +1460,494 @@ root.VS_TESTS = { run, count: tests.length };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 
-<!-- 画面側（確認用）。データ層には触れず、VS の公開APIだけを使う -->
-<script>
+<!-- =====================================================================
+     画面。DOM を扱うのはここだけ。データの変更は必ず VS.repo / VS.store を通す。
+     ===================================================================== -->
+<script id="vs-app">
 (function () {
-  const $ = s => document.querySelector(s);
-  $('#storage-key').textContent = VS.STORAGE_KEY;
+'use strict';
+const VS = window.VS, UI = window.VS_UI;
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad2 = n => String(n).padStart(2, '0');
+const toMin = VS.time.toMin, fromMin = VS.time.fromMin;
+const UI_KEY = 'houmon_schedule_ui';
+const PX_PER_MIN = 1;
+const MONTH_CHIP_MAX = 4;
+/* 保存をブロックする制約。勤務枠外・指示書なしは警告にとどめる（マスタ画面が未実装のため） */
+const BLOCKING = new Set(['noPatient', 'noStaff', 'patientStatus', 'roleMismatch', 'ngStaff', 'roleNotAllowed', 'needsTwoStaff', 'staffOverlap', 'patientOverlap']);
+const FIELD_LABEL = { date: '日付', start: '開始', end: '終了', patientId: '利用者', staffIds: '担当', serviceType: '種別', actual: '実績時刻', note: '備考', cancelReason: 'キャンセル理由', flags: 'フラグ', planId: '計画', origin: '作成元', status: 'ステータス', transferredToId: '振替先', transferredFromId: '振替元', id: 'ID' };
+const STATUS_BTN = { confirmed: '確定にする', done: '実施済みにする', cancelled: 'キャンセルする', transferred: '振替する', planned: '予定に戻す' };
+const STATUS_BTN_FROM = { 'done>confirmed': '実施を取り消す', 'cancelled>planned': 'キャンセルを取り消す' };
+const SKIP_LABEL = { holiday: '休日', patientStatus: '入院・休止・契約外', exists: '展開済み', noPatient: '利用者なし', patientArchived: '利用者が無効' };
+const SVC_SHORT = { nursing: '看', rehab: 'リ' };
 
-  // 1. 概要
-  const schemaRows = [
+const state = {
+  db: null, load: null,
+  view: 'day', date: VS.date.todayStr(), weekMode: 'staff',
+  filter: { staffId: '', patientId: '', serviceType: '', showInactive: false }
+};
+const modal = { id: null, prefill: null };
+
+/* ---------- 設定・状態 ---------- */
+function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
+    if (!p || typeof p !== 'object') return;
+    if (['day', 'week', 'month', 'data'].includes(p.view)) state.view = p.view;
+    if (['staff', 'patient'].includes(p.weekMode)) state.weekMode = p.weekMode;
+    if (typeof p.showInactive === 'boolean') state.filter.showInactive = p.showInactive;
+  } catch (_) { /* 読めなければ既定のまま */ }
+}
+function savePrefs() {
+  try { localStorage.setItem(UI_KEY, JSON.stringify({ view: state.view, weekMode: state.weekMode, showInactive: state.filter.showInactive })); }
+  catch (_) { /* 保存できなくても動作には影響しない */ }
+}
+function loadDb() { state.load = VS.store.load(localStorage); state.db = state.load.db; sanitizeFilter(); }
+function sanitizeFilter() {
+  const f = state.filter, db = state.db;
+  if (f.staffId && f.staffId !== '__none__' && !db.staff.some(s => s.id === f.staffId)) f.staffId = '';
+  if (f.patientId && !db.patients.some(p => p.id === f.patientId)) f.patientId = '';
+  if (f.serviceType && !VS.ENUMS.serviceType[f.serviceType]) f.serviceType = '';
+}
+/* 変更を保存する。検証に通らなければ保存済みの状態へ戻す */
+function persist() {
+  const r = VS.store.save(state.db, localStorage);
+  if (!r.ok) {
+    alert('保存できませんでした。変更を取り消します。\n' + r.errors.slice(0, 8).map(e => `${e.path} ${e.msg}`).join('\n'));
+    loadDb();
+    return false;
+  }
+  if (r.warn) toast(r.warn);
+  return true;
+}
+let toastTimer = null;
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 4000);
+}
+
+/* ---------- 参照 ---------- */
+const patientById = id => state.db.patients.find(p => p.id === id) || null;
+const staffById = id => state.db.staff.find(s => s.id === id) || null;
+const pName = id => { const p = patientById(id); return p ? VS.derive.patientDisplayName(p) : '（利用者不明）'; };
+const sName = id => { const s = staffById(id); return s ? VS.derive.staffDisplayName(s) : '（不明）'; };
+const sColor = v => { const s = v.staffIds[0] ? staffById(v.staffIds[0]) : null; return s ? s.color : '#9ca3af'; };
+const activePatients = () => state.db.patients.filter(p => !p.archived).slice().sort((a, b) => VS.derive.patientDisplayName(a).localeCompare(VS.derive.patientDisplayName(b), 'ja'));
+const activeStaff = () => state.db.staff.filter(s => !s.archived);
+const todayStr = () => VS.date.todayStr();
+function colCls(d) {
+  const hol = state.db.holidays.some(h => h.date === d);
+  const off = !state.db.settings.businessDows.includes(VS.date.dowOf(d));
+  return [d === todayStr() ? 'col-today' : '', hol ? 'col-holiday' : off ? 'col-off' : ''].join(' ');
+}
+function tooltip(v) {
+  const parts = [`${UI.fmtDateJa(v.date)} ${v.start}–${v.end}`, pName(v.patientId), VS.ENUMS.serviceType[v.serviceType],
+    v.staffIds.length ? v.staffIds.map(sName).join('・') : '未割当', VS.ENUMS.visitStatus[v.status]];
+  if (v.note) parts.push(v.note);
+  return parts.join(' / ');
+}
+function summaryHtml(visits, conflictCount) {
+  const s = UI.summarize(visits);
+  return `訪問 <b>${s.count}</b> 件（看護 ${s.nursing}・リハビリ ${s.rehab}）　合計 ${UI.fmtHours(s.minutes)}　未割当 ${s.unassigned ? `<b class="ng">${s.unassigned}</b>` : 0}　重複 ${conflictCount ? `<b class="ng">${conflictCount}</b>` : 0}` + (s.inactive ? `　<span class="muted">キャンセル・振替元 ${s.inactive}</span>` : '');
+}
+
+/* ---------- 描画 ---------- */
+function render() {
+  sanitizeFilter();
+  renderToolbar();
+  const isData = state.view === 'data';
+  $('#view').hidden = isData; $('#data-view').hidden = !isData;
+  if (state.view === 'day') $('#view').innerHTML = renderDay();
+  else if (state.view === 'week') $('#view').innerHTML = renderWeek();
+  else if (state.view === 'month') $('#view').innerHTML = renderMonth();
+  else renderData();
+  savePrefs();
+}
+function fillSelect(sel, options, value) {
+  sel.innerHTML = options.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
+  sel.value = value;
+  if (sel.value !== value) sel.value = '';
+}
+function renderToolbar() {
+  $$('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+  const isCal = state.view !== 'data';
+  $('#nav').hidden = !isCal; $('#filters').hidden = !isCal;
+  $('#btn-expand').hidden = state.view !== 'month';
+  $('#btn-add').hidden = !isCal;
+  $('#week-mode').hidden = state.view !== 'week';
+  $('#date-input').value = state.date;
+  const { y, m } = UI.ym(state.date);
+  let title = UI.fmtDateJa(state.date);
+  if (state.view === 'month') title = `${y}年${m}月`;
+  else if (state.view === 'week') { const w = UI.weekRange(state.date, state.db.settings.weekStartDow); title = `${UI.fmtDateJa(w[0])} 〜 ${UI.fmtDateJa(w[6])}`; }
+  $('#nav-title').textContent = title;
+  fillSelect($('#f-staff'), [['', 'すべてのスタッフ'], ['__none__', '未割当のみ'], ...activeStaff().map(s => [s.id, VS.derive.staffDisplayName(s)])], state.filter.staffId);
+  fillSelect($('#f-patient'), [['', 'すべての利用者'], ...activePatients().map(p => [p.id, VS.derive.patientDisplayName(p)])], state.filter.patientId);
+  $('#f-service').value = state.filter.serviceType;
+  $('#f-inactive').checked = state.filter.showInactive;
+  $$('#week-mode button').forEach(b => b.classList.toggle('active', b.dataset.mode === state.weekMode));
+}
+
+/* --- 日 --- */
+function tagsHtml(v, full) {
+  const svc = `<span class="tag svc-${v.serviceType}">${esc(full ? VS.ENUMS.serviceType[v.serviceType] : SVC_SHORT[v.serviceType])}</span>`;
+  const two = v.staffIds.length === 2 ? '<span class="tag">2名</span>' : '';
+  const em = v.flags.emergency ? '<span class="tag em">緊急</span>' : '';
+  const tr = v.flags.training ? '<span class="tag">研修</span>' : '';
+  return svc + two + em + tr;
+}
+function blockHtml(v, o) {
+  const cls = ['vblock', 'st-' + v.status, o.conflict ? 'conflict' : ''].join(' ');
+  const style = `top:${o.top}px;height:${o.height}px;left:calc(${o.left}% + 2px);width:calc(${o.width}% - 4px);border-left-color:${esc(sColor(v))}`;
+  return `<div class="${cls}" data-id="${esc(v.id)}" style="${style}" title="${esc(tooltip(v))}">` +
+    `<div class="vb-time">${v.start}–${v.end}</div><div class="vb-name">${esc(pName(v.patientId))}</div><div class="vb-tags">${tagsHtml(v, true)}</div></div>`;
+}
+function renderDay() {
+  const db = state.db, date = state.date, f = state.filter;
+  const visits = UI.visitsOn(db, date, f);
+  const conflicts = UI.conflictIds(db.visits.filter(v => v.date === date));
+  $('#summary').innerHTML = summaryHtml(visits, visits.filter(v => conflicts.has(v.id)).length);
+  const axis = UI.axisRange(db.settings, visits);
+  const height = (axis.endMin - axis.startMin) * PX_PER_MIN;
+  // 列: 表示対象のスタッフ ＋ その日の訪問に出てくる無効スタッフ ＋ 未割当
+  let staffCols = f.staffId === '__none__' ? [] : f.staffId ? [staffById(f.staffId)].filter(Boolean) : activeStaff().slice();
+  const seen = new Set(staffCols.map(s => s.id));
+  visits.forEach(v => v.staffIds.forEach(id => { if (!seen.has(id)) { const s = staffById(id); if (s) { staffCols.push(s); seen.add(id); } } }));
+  const columns = staffCols.map(s => ({ id: s.id, label: VS.derive.staffDisplayName(s) + (s.archived ? '（無効）' : ''), sub: VS.ENUMS.staffRole[s.role], color: s.color, items: visits.filter(v => v.staffIds.includes(s.id)) }));
+  if (!f.staffId || f.staffId === '__none__') columns.push({ id: '', label: '未割当', sub: '', color: '#9ca3af', items: visits.filter(v => !v.staffIds.length) });
+  if (!columns.length) return '<div class="empty">表示できる列がありません。</div>';
+  const head = columns.map(c => `<div class="day-head-cell"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.label)}<small>${esc(c.sub)}</small><span class="cnt">${c.items.filter(VS.derive.isActiveVisit).length}件</span></div>`).join('');
+  let labels = '';
+  for (let h = axis.startMin / 60; h <= axis.endMin / 60; h++) {
+    const pos = h * 60 === axis.startMin ? ' first' : h * 60 === axis.endMin ? ' last' : '';
+    labels += `<div class="hour-label${pos}" style="top:${(h * 60 - axis.startMin) * PX_PER_MIN}px">${pad2(h)}:00</div>`;
+  }
+  const body = columns.map(c => {
+    const blocks = UI.layoutLanes(c.items).map(({ item: v, lane, laneCount }) => blockHtml(v, {
+      top: (toMin(v.start) - axis.startMin) * PX_PER_MIN, height: Math.max(22, VS.derive.visitDurationMin(v) * PX_PER_MIN),
+      left: lane / laneCount * 100, width: 100 / laneCount, conflict: conflicts.has(v.id)
+    })).join('');
+    return `<div class="day-col" data-staff="${esc(c.id)}" data-axis-start="${axis.startMin}" style="height:${height}px" title="クリックで訪問を追加">${blocks}</div>`;
+  }).join('');
+  return `<div class="day-wrap"><div class="day-grid" style="grid-template-columns:56px repeat(${columns.length}, minmax(150px, 1fr))">` +
+    `<div class="day-corner"></div>${head}<div class="time-col" style="height:${height}px">${labels}</div>${body}</div></div>`;
+}
+
+/* --- 週 --- */
+function chipHtml(v, o) {
+  const cls = ['chip', 'st-' + v.status, o.conflict ? 'conflict' : ''].join(' ');
+  const who = o.showStaff ? (v.staffIds.length ? v.staffIds.map(sName).join('・') : '未割当') : pName(v.patientId);
+  return `<button type="button" class="${cls}" data-id="${esc(v.id)}" style="border-left-color:${esc(sColor(v))}" title="${esc(tooltip(v))}">` +
+    `<span class="c-time">${v.start}</span> ${esc(who)}<span class="c-tags">${tagsHtml(v, false)}</span></button>`;
+}
+function renderWeek() {
+  const db = state.db, f = state.filter;
+  const dates = UI.weekRange(state.date, db.settings.weekStartDow);
+  const visits = UI.visitsBetween(db, dates[0], dates[6], f);
+  const conflicts = UI.conflictIds(db.visits.filter(v => v.date >= dates[0] && v.date <= dates[6]));
+  $('#summary').innerHTML = summaryHtml(visits, visits.filter(v => conflicts.has(v.id)).length);
+  const headCells = dates.map(d => {
+    const hol = db.holidays.filter(h => h.date === d);
+    return `<th class="${colCls(d)}"><button type="button" class="linkish" data-goto="${d}">${UI.fmtMD(d)}（${UI.DOW_JA[VS.date.dowOf(d)]}）</button>` +
+      hol.map(h => `<div class="hol">${esc(h.name || VS.ENUMS.holidayKind[h.kind])}</div>`).join('') + '</th>';
+  }).join('');
+  let rows;
+  if (state.weekMode === 'staff') {
+    let list = f.staffId === '__none__' ? [] : f.staffId ? [staffById(f.staffId)].filter(Boolean) : activeStaff().slice();
+    const seen = new Set(list.map(s => s.id));
+    visits.forEach(v => v.staffIds.forEach(id => { if (!seen.has(id)) { const s = staffById(id); if (s) { list.push(s); seen.add(id); } } }));
+    rows = list.map(s => ({ label: VS.derive.staffDisplayName(s) + (s.archived ? '（無効）' : ''), sub: VS.ENUMS.staffRole[s.role], color: s.color, addAttr: `data-staff="${esc(s.id)}"`, pick: v => v.staffIds.includes(s.id) }));
+    if (!f.staffId || f.staffId === '__none__') rows.push({ label: '未割当', sub: '', color: '#9ca3af', addAttr: '', pick: v => !v.staffIds.length });
+  } else {
+    let list = f.patientId ? [patientById(f.patientId)].filter(Boolean) : activePatients();
+    const seen = new Set(list.map(p => p.id));
+    visits.forEach(v => { if (!seen.has(v.patientId)) { const p = patientById(v.patientId); if (p) { list.push(p); seen.add(p.id); } } });
+    rows = list.map(p => ({ label: VS.derive.patientDisplayName(p) + (p.archived ? '（無効）' : ''), sub: VS.ENUMS.insurance[p.insurance] + (p.careLevel !== 'none' ? '・' + VS.ENUMS.careLevel[p.careLevel] : ''), color: '#6b7280', addAttr: `data-patient="${esc(p.id)}"`, pick: v => v.patientId === p.id }));
+  }
+  if (!rows.length) return '<div class="empty">表示できる行がありません。</div>';
+  const body = rows.map(r => {
+    const rowVisits = visits.filter(r.pick);
+    const sum = UI.summarize(rowVisits);
+    const cells = dates.map(d => {
+      const chips = rowVisits.filter(v => v.date === d).map(v => chipHtml(v, { conflict: conflicts.has(v.id), showStaff: state.weekMode === 'patient' })).join('');
+      return `<td class="cell ${colCls(d)}">${chips}<button type="button" class="add" data-add data-date="${d}" ${r.addAttr} title="この日に追加">＋ 追加</button></td>`;
+    }).join('');
+    return `<tr><th class="rowhead"><span class="dot" style="background:${esc(r.color)}"></span>${esc(r.label)}<small>${esc(r.sub)}</small><div class="rowsum">${sum.count}件 / ${UI.fmtHours(sum.minutes)}</div></th>${cells}</tr>`;
+  }).join('');
+  return `<div class="week-wrap"><table class="week"><thead><tr><th class="corner rowhead"></th>${headCells}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/* --- 月 --- */
+function renderMonth() {
+  const db = state.db, f = state.filter;
+  const { y, m } = UI.ym(state.date);
+  const grid = UI.monthGrid(y, m, db.settings.weekStartDow);
+  const visits = UI.visitsBetween(db, grid.dates[0], grid.dates[grid.dates.length - 1], f);
+  const conflicts = UI.conflictIds(db.visits.filter(v => v.date >= grid.dates[0] && v.date <= grid.dates[grid.dates.length - 1]));
+  const inMonth = visits.filter(v => v.date >= grid.first && v.date <= grid.last);
+  $('#summary').innerHTML = summaryHtml(inMonth, inMonth.filter(v => conflicts.has(v.id)).length);
+  const head = Array.from({ length: 7 }, (_, i) => `<div>${UI.DOW_JA[(db.settings.weekStartDow + i) % 7]}</div>`).join('');
+  const cells = grid.dates.map(d => {
+    const items = visits.filter(v => v.date === d);
+    const shown = items.slice(0, MONTH_CHIP_MAX), more = items.length - shown.length;
+    const hol = db.holidays.filter(h => h.date === d);
+    const active = items.filter(VS.derive.isActiveVisit).length;
+    return `<div class="mcell ${d >= grid.first && d <= grid.last ? '' : 'other'} ${colCls(d)}">` +
+      `<div class="mday"><button type="button" class="daynum" data-goto="${d}" title="日表示へ">${Number(d.slice(8))}</button>` +
+      hol.map(h => `<span class="hol">${esc(h.name || VS.ENUMS.holidayKind[h.kind])}</span>`).join('') +
+      `<span class="mcount">${active ? active + '件' : ''}</span><button type="button" class="add" data-add data-date="${d}" title="この日に追加">＋</button></div>` +
+      shown.map(v => chipHtml(v, { conflict: conflicts.has(v.id), showStaff: false })).join('') +
+      (more ? `<button type="button" class="more" data-goto="${d}">他 ${more} 件</button>` : '') + '</div>';
+  }).join('');
+  return `<div class="month-head">${head}</div><div class="month">${cells}</div>`;
+}
+
+/* --- データ --- */
+function renderData() {
+  const { db, errors, backupKey } = state.load;
+  $('#storage-key').textContent = VS.STORAGE_KEY;
+  const banner = $('#load-banner');
+  banner.hidden = !errors.length;
+  if (errors.length) banner.innerHTML = `保存データの読み込みで問題がありました（${errors.length} 件）。${backupKey ? `元のデータは <code>${esc(backupKey)}</code> に退避してあります。` : ''}<ul>${errors.slice(0, 10).map(e => `<li><code>${esc(e.path)}</code> ${esc(e.msg)}</li>`).join('')}</ul>`;
+  $('#counts').innerHTML = ['patients', 'staff', 'plans', 'visits', 'holidays', 'history'].map(k => `<span>${k}: <b>${db[k].length}</b></span>`).join('') + `<span class="muted">更新: ${esc(db.meta.updatedAt)}</span>`;
+  const live = VS.validate.db(db);
+  $('#db-errors').innerHTML = live.length ? `<p class="ng">現在のデータに問題があります（${live.length} 件）</p><ul>${live.slice(0, 20).map(e => `<li><code>${esc(e.path)}</code> ${esc(e.msg)}</li>`).join('')}</ul>` : '<p class="ok">保存データは検証に合格しています</p>';
+  const preview = VS.store.exportJson(db);
+  $('#db-preview').textContent = preview.length > 20000 ? preview.slice(0, 20000) + '\n… (省略)' : preview;
+}
+function renderStaticData() {
+  const rows = [
     ['patients', '利用者マスタ', '保険種別・要介護度・指示書期間・契約期間・入院/休止の期間・希望条件・NG担当'],
     ['staff', 'スタッフマスタ', '職種・雇用形態・標準の勤務可能枠・在籍期間・表示色'],
     ['plans', '訪問計画（週パターン）', '利用者・曜日・開始時刻・所要時間・既定担当・繰り返し（毎週/隔週/第N週）・有効期間'],
     ['visits', '訪問（個別の予定・実績）', '日付・開始/終了・利用者・担当（最大2名）・ステータス・振替の双方向参照・実績時刻'],
     ['holidays', '休日', '祝日・事業所休業日。展開時に見送り対象'],
-    ['settings', '設定', '営業曜日・時間軸・入力刻み・既定所要時間'],
+    ['settings', '設定', '営業曜日・時間軸・入力刻み・既定所要時間・週の開始曜日'],
     ['history', '変更履歴', '追加・更新・ステータス変更・振替・削除。上限 ' + VS.HISTORY_MAX + ' 件']
   ];
-  $('#schema').innerHTML = '<table><thead><tr><th>コレクション</th><th>役割</th><th>主な項目</th></tr></thead><tbody>'
-    + schemaRows.map(r => `<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('') + '</tbody></table>';
-
-  // 2. セルフテスト
-  const results = VS_TESTS.run();
+  $('#schema').innerHTML = '<table class="plain"><thead><tr><th>コレクション</th><th>役割</th><th>主な項目</th></tr></thead><tbody>' + rows.map(r => `<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('') + '</tbody></table>';
+  const results = window.VS_TESTS.run();
   const pass = results.filter(r => r.ok).length;
   $('#test-summary').innerHTML = `<p class="${pass === results.length ? 'ok' : 'ng'}">${pass} / ${results.length} 合格</p>`;
-  $('#test-table tbody').innerHTML = results.map(r =>
-    `<tr><td class="${r.ok ? 'ok' : 'ng'}">${r.ok ? '合格' : '不合格'}</td><td>${r.name}</td><td>${r.detail}</td></tr>`).join('');
+  $('#test-table tbody').innerHTML = results.map(r => `<tr><td class="${r.ok ? 'ok' : 'ng'}">${r.ok ? '合格' : '不合格'}</td><td>${esc(r.name)}</td><td>${esc(r.detail)}</td></tr>`).join('');
+}
 
-  // 3. 保存データ操作
-  function refresh() {
-    const { db, errors, backupKey } = VS.store.load(localStorage);
-    $('#counts').innerHTML = ['patients', 'staff', 'plans', 'visits', 'holidays', 'history']
-      .map(k => `<span>${k}: <b>${db[k].length}</b></span>`).join('') + `<span class="muted">更新: ${db.meta.updatedAt}</span>`;
-    $('#db-errors').innerHTML = errors.length
-      ? `<p class="ng">読み込み時の問題 ${errors.length} 件${backupKey ? '（元データは ' + backupKey + ' に退避）' : ''}</p><ul>${errors.slice(0, 20).map(e => `<li><code>${e.path}</code> ${e.msg}</li>`).join('')}</ul>`
-      : '<p class="ok">保存データは検証に合格しています</p>';
-    const preview = VS.store.exportJson(db);
-    $('#db-preview').textContent = preview.length > 20000 ? preview.slice(0, 20000) + '\n… (省略)' : preview;
+/* ---------- 訪問の編集モーダル ---------- */
+function openVisitModal({ id = null, prefill = null } = {}) {
+  const v = id ? VS.repo.visits.get(state.db, id) : null;
+  if (id && !v) { toast('訪問が見つかりません'); return; }
+  modal.id = id; modal.prefill = prefill;
+  $('#modal-title').textContent = v ? '訪問の編集' : '訪問の追加';
+  $('#modal-body').innerHTML = visitFormHtml(v, prefill || {});
+  $('#modal').hidden = false;
+  wireForm(v);
+  if (v && VS.derive.isActiveVisit(v)) {
+    const rules = VS.rules.checkVisitRules(state.db, v);
+    showMsgs(rules.filter(r => BLOCKING.has(r.code)), rules.filter(r => !BLOCKING.has(r.code)));
   }
+  const first = $('#visit-form [name=date]'); if (first && !first.disabled) first.focus();
+}
+function closeModal() { $('#modal').hidden = true; modal.id = null; modal.prefill = null; }
+function optionList(items, value, labelFn, emptyLabel) {
+  return `<option value="">${esc(emptyLabel)}</option>` + items.map(x => `<option value="${esc(x.id)}" ${x.id === value ? 'selected' : ''}>${esc(labelFn(x))}</option>`).join('');
+}
+function withCurrent(list, value, byId) { if (value && !list.some(x => x.id === value)) { const cur = byId(value); if (cur) list = list.concat([cur]); } return list; }
+function visitFormHtml(v, pre) {
+  const d = v || Object.assign({ date: state.date, start: '', end: '', patientId: '', staffIds: [], serviceType: 'nursing', flags: { emergency: false, training: false }, note: '' }, pre);
+  const locked = !!v && v.status === 'transferred';
+  const dis = locked ? 'disabled' : '';
+  let statusLine = '';
+  if (v) {
+    const btns = (VS.STATUS_TRANSITIONS[v.status] || []).map(n => `<button type="button" class="small" data-status="${n}">${esc(STATUS_BTN_FROM[v.status + '>' + n] || STATUS_BTN[n])}</button>`).join('');
+    statusLine = `<div class="status-line"><span class="badge st-${v.status}">${esc(VS.ENUMS.visitStatus[v.status])}</span>` +
+      (v.cancelReason ? `<span class="muted">理由: ${esc(VS.ENUMS.cancelReason[v.cancelReason])}</span>` : '') +
+      (v.planId ? '<span class="muted">計画から展開</span>' : '') +
+      (v.transferredFromId ? `<button type="button" class="linkish" data-open="${esc(v.transferredFromId)}">振替元を開く</button>` : '') +
+      (v.transferredToId ? `<button type="button" class="linkish" data-open="${esc(v.transferredToId)}">振替先を開く</button>` : '') +
+      `<span class="spacer"></span>${btns}</div><div id="action-panel"></div>`;
+  }
+  const staffSel = (name, value, empty) => `<select name="${name}" ${dis}>${optionList(withCurrent(activeStaff(), value, staffById), value, s => `${VS.derive.staffDisplayName(s)}（${VS.ENUMS.staffRole[s.role]}）${s.archived ? '・無効' : ''}`, empty)}</select>`;
+  const patients = withCurrent(activePatients(), d.patientId, patientById);
+  const hint = patients.length ? '' : '<div class="hint">利用者が登録されていません。「データ」タブからサンプルを読み込むか、利用者登録画面（次の段階）で登録してください。</div>';
+  return `${statusLine}${hint}<form id="visit-form" autocomplete="off"><div class="grid2">` +
+    `<label>日付<input type="date" name="date" value="${esc(d.date || '')}" required ${dis}></label>` +
+    `<label>利用者<select name="patientId" ${dis}>${optionList(patients, d.patientId, p => VS.derive.patientDisplayName(p) + (p.archived ? '（無効）' : ''), '選択してください')}</select></label>` +
+    `<label>開始<input type="time" name="start" value="${esc(d.start || '')}" step="300" required ${dis}></label>` +
+    `<label>終了<input type="time" name="end" value="${esc(d.end || '')}" step="300" required ${dis}></label>` +
+    `<label>種別<select name="serviceType" ${dis}>${Object.entries(VS.ENUMS.serviceType).map(([k, l]) => `<option value="${k}" ${k === d.serviceType ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` +
+    `<label>所要時間<span class="readout" id="dur-readout">—</span></label>` +
+    `<label>担当1${staffSel('staff1', d.staffIds[0] || '', '未割当')}</label>` +
+    `<label>担当2（複数名訪問）${staffSel('staff2', d.staffIds[1] || '', 'なし')}</label>` +
+    `<label class="chk"><input type="checkbox" name="emergency" ${d.flags.emergency ? 'checked' : ''} ${dis}> 緊急訪問</label>` +
+    `<label class="chk"><input type="checkbox" name="training" ${d.flags.training ? 'checked' : ''} ${dis}> 研修同行（複数名加算の対象外）</label>` +
+    (v && v.status === 'done' ? `<label>実績 開始<input type="time" name="aStart" value="${esc(v.actual.start)}" step="300"></label><label>実績 終了<input type="time" name="aEnd" value="${esc(v.actual.end)}" step="300"></label>` : '') +
+    `<label class="wide">備考<textarea name="note" rows="2" ${dis}>${esc(d.note)}</textarea></label></div>` +
+    `<div id="form-msgs"></div><div class="modal-foot">` +
+    (v ? `<button type="button" class="danger" id="btn-delete" ${locked ? 'disabled' : ''}>削除</button>` : '') +
+    `<span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button>` +
+    (locked ? '' : '<button type="submit" class="primary" id="btn-save">保存</button>') + '</div></form>';
+}
+const tval = s => { if (!s) return ''; s = String(s).slice(0, 5); return VS.time.isTimeStr(s) ? s : ''; };
+function wireForm(v) {
+  const form = $('#visit-form');
+  const startEl = form.elements.start, endEl = form.elements.end, readout = $('#dur-readout');
+  let lastDur = state.db.settings.defaultDurationMin;
+  if (v) lastDur = VS.derive.visitDurationMin(v);
+  else if (modal.prefill && tval(modal.prefill.start) && tval(modal.prefill.end) && toMin(modal.prefill.end) > toMin(modal.prefill.start)) lastDur = toMin(modal.prefill.end) - toMin(modal.prefill.start);
+  const updateDur = () => { const s = tval(startEl.value), e = tval(endEl.value); readout.textContent = s && e && toMin(e) > toMin(s) ? `${toMin(e) - toMin(s)} 分` : '—'; };
+  startEl.addEventListener('change', () => {
+    const s = tval(startEl.value); if (!s) return;
+    const e = tval(endEl.value);
+    if (!e || toMin(e) <= toMin(s)) endEl.value = fromMin(Math.min(24 * 60 - 1, toMin(s) + lastDur));
+    updateDur();
+  });
+  endEl.addEventListener('change', () => { const s = tval(startEl.value), e = tval(endEl.value); if (s && e && toMin(e) > toMin(s)) lastDur = toMin(e) - toMin(s); updateDur(); });
+  updateDur();
+  form.addEventListener('submit', ev => { ev.preventDefault(); saveFromForm(v); });
+  $('#btn-close-modal').onclick = closeModal;
+  const del = $('#btn-delete'); if (del) del.onclick = () => deleteVisit(v.id);
+  $$('#modal [data-status]').forEach(b => { b.onclick = () => startStatusAction(v, b.dataset.status); });
+  $$('#modal [data-open]').forEach(b => { b.onclick = () => openVisitModal({ id: b.dataset.open }); });
+}
+function readForm(form) {
+  const f = form.elements;
+  const patch = {
+    date: f.date.value, start: tval(f.start.value), end: tval(f.end.value),
+    patientId: f.patientId.value, staffIds: [f.staff1.value, f.staff2.value].filter(Boolean),
+    serviceType: f.serviceType.value, flags: { emergency: f.emergency.checked, training: f.training.checked }, note: f.note.value.trim()
+  };
+  if (f.aStart) patch.actual = { start: tval(f.aStart.value), end: tval(f.aEnd.value) };
+  return patch;
+}
+function showMsgs(errors, warnings) {
+  const el = $('#form-msgs'); if (!el) return;
+  const fmt = e => e.text || (e.path && FIELD_LABEL[e.path.split(/[.\[]/)[0]] ? `${FIELD_LABEL[e.path.split(/[.\[]/)[0]]}: ${e.msg}` : e.msg);
+  el.innerHTML = (errors.length ? `<ul class="msgs err">${errors.map(e => `<li>${esc(fmt(e))}</li>`).join('')}</ul>` : '') +
+    (warnings.length ? `<ul class="msgs warn">${warnings.map(w => `<li>${esc(w.msg)}</li>`).join('')}</ul>` : '');
+}
+function saveFromForm(v) {
+  const patch = readForm($('#visit-form'));
+  const candidate = v ? Object.assign(VS.clone(v), patch, { updatedAt: VS.nowIso() }) : VS.create.visit(patch);
+  const errs = VS.validate.visit(candidate);
+  if (errs.length) { showMsgs(errs, []); return; }
+  const rules = VS.rules.checkVisitRules(state.db, candidate);
+  const blocking = rules.filter(r => BLOCKING.has(r.code)), warnings = rules.filter(r => !BLOCKING.has(r.code));
+  if (blocking.length) { showMsgs(blocking, warnings); return; }
+  try { if (v) VS.repo.visits.update(state.db, v.id, patch); else VS.repo.visits.add(state.db, candidate); }
+  catch (err) { showMsgs([{ msg: err.message }].concat(err.errors || []), []); loadDb(); return; }
+  if (!persist()) { closeModal(); render(); return; }
+  if (!v || candidate.date !== state.date) state.date = candidate.date;
+  closeModal(); render();
+  toast(warnings.length ? '保存しました（注意: ' + warnings.map(w => w.msg).join(' / ') + '）' : '保存しました');
+}
+function deleteVisit(id) {
+  if (!confirm('この訪問を削除します。よろしいですか？\n（記録を残す場合は「キャンセルする」を使ってください）')) return;
+  try { VS.repo.visits.remove(state.db, id); }
+  catch (err) { showMsgs([{ msg: err.message }], []); return; }
+  if (!persist()) { closeModal(); render(); return; }
+  closeModal(); render(); toast('削除しました');
+}
+function actionPanel(html, onOk) {
+  const p = $('#action-panel'); p.innerHTML = html;
+  $('#act-ok').onclick = onOk;
+  $('#act-no').onclick = () => { p.innerHTML = ''; };
+}
+function startStatusAction(v, next) {
+  if (next === 'cancelled') {
+    actionPanel(`<label>キャンセル理由<select id="act-reason">${Object.entries(VS.ENUMS.cancelReason).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label>` +
+      `<button type="button" class="primary" id="act-ok">キャンセルを確定</button><button type="button" id="act-no">やめる</button>`,
+      () => applyStatus(v.id, 'cancelled', { cancelReason: $('#act-reason').value }));
+  } else if (next === 'done') {
+    actionPanel(`<label>実績 開始<input type="time" id="act-start" value="${esc(v.start)}" step="300"></label><label>実績 終了<input type="time" id="act-end" value="${esc(v.end)}" step="300"></label>` +
+      `<button type="button" class="primary" id="act-ok">実施済みにする</button><button type="button" id="act-no">やめる</button>`,
+      () => applyStatus(v.id, 'done', { actual: { start: tval($('#act-start').value), end: tval($('#act-end').value) } }));
+  } else if (next === 'transferred') {
+    actionPanel(`<label>振替先の日付<input type="date" id="act-date" value="${esc(v.date)}"></label><label>開始<input type="time" id="act-start" value="${esc(v.start)}" step="300"></label>` +
+      `<label class="chk"><input type="checkbox" id="act-keep" checked> 担当も引き継ぐ</label>` +
+      `<button type="button" class="primary" id="act-ok">振替を確定</button><button type="button" id="act-no">やめる</button>`,
+      () => applyTransfer(v.id, { date: $('#act-date').value, start: tval($('#act-start').value), keepStaff: $('#act-keep').checked }));
+  } else applyStatus(v.id, next, {});
+}
+function applyStatus(id, next, extra) {
+  try { VS.repo.visits.setStatus(state.db, id, next, extra); }
+  catch (err) { showMsgs([{ msg: err.message }].concat(err.errors || []), []); return; }
+  if (!persist()) { closeModal(); render(); return; }
+  render(); openVisitModal({ id }); toast(`「${VS.ENUMS.visitStatus[next]}」にしました`);
+}
+function applyTransfer(id, { date, start, keepStaff }) {
+  const src = VS.repo.visits.get(state.db, id);
+  if (!VS.date.isDateStr(date) || !start) { showMsgs([{ msg: '振替先の日付と開始時刻を入力してください' }], []); return; }
+  let dst;
+  try { dst = VS.repo.visits.transfer(state.db, id, { date, start, staffIds: keepStaff ? src.staffIds.slice() : [] }); }
+  catch (err) { showMsgs([{ msg: err.message }].concat(err.errors || []), []); loadDb(); return; }
+  const blocking = VS.rules.checkVisitRules(state.db, dst).filter(r => BLOCKING.has(r.code));
+  if (blocking.length) { loadDb(); showMsgs(blocking.map(b => ({ msg: '振替先: ' + b.msg })), []); return; }
+  if (!persist()) { closeModal(); render(); return; }
+  state.date = date; render(); openVisitModal({ id: dst.id }); toast('振替しました');
+}
+
+/* ---------- イベント ---------- */
+function step(n) {
+  if (state.view === 'day') state.date = VS.date.addDays(state.date, n);
+  else if (state.view === 'week') state.date = VS.date.addDays(state.date, 7 * n);
+  else {
+    const { y, m } = UI.ym(state.date); const t = UI.addMonths(y, m, n);
+    state.date = `${t.y}-${pad2(t.m)}-${pad2(Math.min(Number(state.date.slice(8)), VS.date.daysInMonth(t.y, t.m)))}`;
+  }
+  render();
+}
+function wireEvents() {
+  $$('.tabs button').forEach(b => { b.onclick = () => { state.view = b.dataset.view; render(); }; });
+  $$('#week-mode button').forEach(b => { b.onclick = () => { state.weekMode = b.dataset.mode; render(); }; });
+  $('#nav-prev').onclick = () => step(-1);
+  $('#nav-next').onclick = () => step(1);
+  $('#nav-today').onclick = () => { state.date = todayStr(); render(); };
+  $('#date-input').onchange = e => { if (VS.date.isDateStr(e.target.value)) { state.date = e.target.value; render(); } };
+  $('#f-staff').onchange = e => { state.filter.staffId = e.target.value; render(); };
+  $('#f-patient').onchange = e => { state.filter.patientId = e.target.value; render(); };
+  $('#f-service').onchange = e => { state.filter.serviceType = e.target.value; render(); };
+  $('#f-inactive').onchange = e => { state.filter.showInactive = e.target.checked; render(); };
+  $('#btn-add').onclick = () => openVisitModal({ prefill: { date: state.date } });
+  $('#btn-expand').onclick = expandCurrentMonth;
+  $('#view').addEventListener('click', e => {
+    const open = e.target.closest('[data-id]');
+    if (open) { openVisitModal({ id: open.dataset.id }); return; }
+    const add = e.target.closest('[data-add]');
+    if (add) { openVisitModal({ prefill: { date: add.dataset.date, staffIds: add.dataset.staff ? [add.dataset.staff] : [], patientId: add.dataset.patient || '' } }); return; }
+    const go = e.target.closest('[data-goto]');
+    if (go) { state.date = go.dataset.goto; state.view = 'day'; render(); return; }
+    const col = e.target.closest('.day-col');
+    if (col) {
+      const rect = col.getBoundingClientRect();
+      const slot = state.db.settings.slotMin;
+      const min = UI.snapMin(Number(col.dataset.axisStart) + (e.clientY - rect.top) / PX_PER_MIN, slot);
+      const startMin = Math.max(0, Math.min(min, 24 * 60 - slot));
+      const endMin = Math.min(24 * 60 - 1, startMin + state.db.settings.defaultDurationMin);
+      openVisitModal({ prefill: { date: state.date, start: fromMin(startMin), end: fromMin(endMin), staffIds: col.dataset.staff ? [col.dataset.staff] : [] } });
+    }
+  });
+  $('#modal-close').onclick = closeModal;
+  $('#modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+
+  // データタブ
   $('#btn-sample').onclick = () => {
     if (localStorage.getItem(VS.STORAGE_KEY) !== null && !confirm('保存済みデータをサンプルで置き換えます。よろしいですか？')) return;
     const now = new Date();
     const r = VS.store.save(VS.sample.build(now.getFullYear(), now.getMonth() + 1), localStorage);
     if (!r.ok) alert('保存できませんでした:\n' + r.errors.map(e => e.path + ' ' + e.msg).join('\n'));
-    refresh();
+    loadDb(); render(); toast('サンプルデータを読み込みました');
   };
   $('#btn-export').onclick = () => {
-    const { db } = VS.store.load(localStorage);
-    const blob = new Blob([VS.store.exportJson(db)], { type: 'application/json' });
+    const blob = new Blob([VS.store.exportJson(state.db)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `訪問スケジュール_${VS.date.todayStr()}.json`; a.click(); URL.revokeObjectURL(a.href);
+    a.download = `訪問スケジュール_${todayStr()}.json`; a.click(); URL.revokeObjectURL(a.href);
   };
+  $('#btn-import').onclick = () => $('#file-import').click();
   $('#file-import').onchange = ev => {
-    const f = ev.target.files[0]; if (!f) return;
+    const file = ev.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -1173,15 +1957,38 @@ root.VS_TESTS = { run, count: tests.length };
         const r = VS.store.save(db, localStorage);
         if (!r.ok) alert('保存できませんでした');
       } catch (e) { alert(e.message); }
-      ev.target.value = ''; refresh();
+      finally { ev.target.value = ''; loadDb(); render(); }
     };
-    reader.readAsText(f);
+    reader.readAsText(file);
   };
   $('#btn-clear').onclick = () => {
     if (!confirm('保存データをすべて削除します。先にJSONを書き出していますか？')) return;
-    VS.store.clear(localStorage); refresh();
+    VS.store.clear(localStorage); loadDb(); render();
   };
-  refresh();
+}
+function expandCurrentMonth() {
+  const { y, m } = UI.ym(state.date);
+  const plans = state.db.plans.filter(p => !p.archived);
+  if (!plans.length) { alert('有効な訪問計画がありません。'); return; }
+  if (!confirm(`${y}年${m}月に ${plans.length} 件の訪問計画を展開します。すでに展開済みの日は重複しません。よろしいですか？`)) return;
+  let r;
+  try { r = VS.rules.expandMonth(state.db, y, m); }
+  catch (err) { alert('展開できませんでした: ' + err.message); loadDb(); render(); return; }
+  if (!persist()) { render(); return; }
+  const reasons = {};
+  r.skipped.forEach(s => { reasons[s.reason] = (reasons[s.reason] || 0) + 1; });
+  const detail = Object.entries(reasons).map(([k, n]) => `${SKIP_LABEL[k] || k} ${n}`).join('、');
+  render();
+  alert(`${r.added.length} 件の訪問を追加しました。` + (r.skipped.length ? `\n見送り ${r.skipped.length} 件（${detail}）` : ''));
+}
+
+/* ---------- 起動 ---------- */
+loadPrefs();
+loadDb();
+wireEvents();
+renderStaticData();
+render();
+if (state.load.errors.length) toast('保存データに問題がありました。「データ」タブで内容を確認してください');
 })();
 </script>
 </body>
