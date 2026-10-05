@@ -670,12 +670,37 @@
   /* ------------------------------------------------------ 一覧の絞り込み */
   var filter = document.getElementById("listFilter");
   if (filter) {
-    filter.addEventListener("input", function () {
-      var q = filter.value.toLowerCase();
-      document.querySelectorAll("[data-search]").forEach(function (row) {
-        var hit = row.getAttribute("data-search").toLowerCase().indexOf(q) >= 0;
+    var clearBtn = document.getElementById("filterClear");
+    var note = document.getElementById("filterNote");
+
+    function applyFilter() {
+      var q = filter.value.trim().toLowerCase();
+      var rows = document.querySelectorAll("[data-search]");
+      var shown = 0;
+      rows.forEach(function (row) {
+        var hit = !q || row.getAttribute("data-search").toLowerCase().indexOf(q) >= 0;
         row.style.display = hit ? "" : "none";
+        if (hit) shown++;
       });
+      // 絞り込み中であることを、はっきり見せる
+      if (note) {
+        note.hidden = !q;
+        note.textContent = q ? "「" + filter.value.trim() + "」で絞り込み中：" +
+                               rows.length + "件中 " + shown + "件を表示" : "";
+      }
+      if (clearBtn) clearBtn.hidden = !q;
+    }
+
+    filter.addEventListener("input", applyFilter);
+    if (clearBtn) clearBtn.addEventListener("click", function () {
+      filter.value = "";
+      applyFilter();
+      filter.focus();
     });
+
+    // ブラウザが前回の入力を勝手に戻すことがあるので、開いたときは必ず空にする
+    filter.value = "";
+    applyFilter();
+    window.addEventListener("pageshow", function () { filter.value = ""; applyFilter(); });
   }
 })();

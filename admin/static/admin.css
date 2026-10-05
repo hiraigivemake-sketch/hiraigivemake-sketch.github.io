@@ -507,3 +507,6 @@ pre.log {
 }
 .status--wait { background: #fdf1e3; border: 1px solid #e0a463; color: #8a4700; }
 .status--live { background: #eef6ef; border: 1px solid #a9ccae; color: #2f6136; }
+
+/* 絞り込み中であることの表示 */
+.filter-note { font-size: 13px; color: #a55600; font-weight: 700; }

@@ -310,7 +310,7 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
       <button class="btn" type="button" id="pickLib" hidden>画像ライブラリに戻る</button>
       <button class="btn btn--ghost" type="button" id="pickClose">閉じる</button>
     </div>
-    <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む"></div>
+    <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む" autocomplete="off"></div>
     <div class="modal__chosen" id="chosenBar" hidden>
       <button class="btn btn--primary" type="button" id="chosenGo">選んだ写真を入れる（<span id="chosenCount">0</span>枚）</button>
       <button class="btn" type="button" id="chosenSave">パソコンに保存</button>
@@ -730,7 +730,9 @@ def view_list(kind: str) -> str:
 <p class="page-note">{len(rows)}件あります。新しい順に並んでいます。{waiting_note}</p>
 <div class="toolbar">
   <a class="btn btn--primary" href="/new/{kind}">＋ 新しく追加</a>
-  <input type="search" id="listFilter" placeholder="タイトルで探す">
+  <input type="search" id="listFilter" placeholder="タイトルで探す" autocomplete="off">
+  <button class="btn btn--sm" type="button" id="filterClear" hidden>絞り込みをやめる</button>
+  <span class="filter-note" id="filterNote" hidden></span>
 </div>
 <div class="list">{''.join(rows)}</div>"""
 
@@ -899,7 +901,9 @@ def view_images() -> str:
 </div>
 
 <div class="toolbar">
-  <input type="search" id="listFilter" placeholder="ファイル名で探す">
+  <input type="search" id="listFilter" placeholder="ファイル名で探す" autocomplete="off">
+  <button class="btn btn--sm" type="button" id="filterClear" hidden>絞り込みをやめる</button>
+  <span class="filter-note" id="filterNote" hidden></span>
   <button class="btn" type="button" id="pickAll">すべて選ぶ</button>
   <button class="btn btn--primary" type="button" id="savePicked" disabled>
     パソコンに保存（<span id="pickedCount">0</span>点）</button>
