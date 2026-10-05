@@ -45,38 +45,64 @@ if errorlevel 1 (
   goto :end
 )
 
-rem 送る前に点検する
-%PY% build.py > nul
-%PY% tools\check.py > "%TEMP%\kuricare_check.txt" 2>&1
-if errorlevel 1 (
-  echo 点検で問題が見つかりました。直してからもう一度実行してください。
-  echo.
-  type "%TEMP%\kuricare_check.txt"
-  goto :end
-)
+rem ------------------------------------------------------------------
+rem   1) GitHubの最新を確認する
+rem ------------------------------------------------------------------
+%GIT% fetch --quiet origin > nul 2>&1
 
-rem 変更があるか調べる（結果をファイルに出して、中身が空かどうかで判断）
+rem ------------------------------------------------------------------
+rem   2) このパソコンの変更を先に記録する（受け取りで失わないため）
+rem ------------------------------------------------------------------
 %GIT% status --porcelain > "%TEMP%\kuricare_status.txt" 2>&1
 set NEWCHANGE=1
 for %%A in ("%TEMP%\kuricare_status.txt") do if %%~zA equ 0 set NEWCHANGE=
 
-rem まだ送っていない記録があるか（前回、記録だけして送信できなかった場合など）
-%GIT% fetch --quiet origin > nul 2>&1
-set UNPUSHED=0
-for /f %%N in ('%GIT% rev-list --count @{u}..HEAD 2^>nul') do set UNPUSHED=%%N
-
-if "%NEWCHANGE%"=="" if "%UNPUSHED%"=="0" (
-  echo 変更はありません。すでに最新の状態です。
-  goto :end
-)
-if "%NEWCHANGE%"=="" goto :pushonly
+if "%NEWCHANGE%"=="" goto :receive
 echo 今回の変更
 %GIT% status --short
 echo.
 %GIT% add -A
 for /f "tokens=1-3 delims=/ " %%a in ("%date%") do set D=%%a-%%b-%%c
 %GIT% commit -m "サイト更新 %D% %time:~0,5%" > nul
-:pushonly
+
+rem ------------------------------------------------------------------
+rem   3) ほかのパソコンの変更を受け取る
+rem ------------------------------------------------------------------
+:receive
+set INCOMING=0
+for /f %%N in ('%GIT% rev-list --count HEAD..@{u} 2^>nul') do set INCOMING=%%N
+if "%INCOMING%"=="0" goto :checkstep
+
+echo ほかのパソコンの変更 %INCOMING% 件を受け取ります...
+%GIT% merge --no-edit @{u} > "%TEMP%\kuricare_merge.txt" 2>&1
+if errorlevel 1 goto :mergefail
+echo 受け取りました。
+echo.
+
+rem ------------------------------------------------------------------
+rem   4) 受け取った内容もあわせて点検する
+rem ------------------------------------------------------------------
+:checkstep
+%PY% build.py > nul
+%PY% tools\check.py > "%TEMP%\kuricare_check.txt" 2>&1
+if errorlevel 1 (
+  echo 点検で問題が見つかりました。直してからもう一度実行してください。
+  echo （このパソコンの変更は記録済みです。失われていません）
+  echo.
+  type "%TEMP%\kuricare_check.txt"
+  goto :end
+)
+
+rem ------------------------------------------------------------------
+rem   5) GitHubへ送る
+rem ------------------------------------------------------------------
+set UNPUSHED=0
+for /f %%N in ('%GIT% rev-list --count @{u}..HEAD 2^>nul') do set UNPUSHED=%%N
+if "%UNPUSHED%"=="0" (
+  echo 送るものはありません。すでに最新の状態です。
+  goto :end
+)
+
 echo GitHubへ送信中...
 %GIT% push
 if errorlevel 1 (
@@ -89,6 +115,18 @@ if errorlevel 1 (
   echo 送信しました。1〜2分でホームページに反映されます。
   echo 進み具合は GitHub の「Actions」タブで確認できます。
 )
+goto :end
+
+:mergefail
+%GIT% merge --abort > nul 2>&1
+echo.
+echo 受け取りを中断しました。送信はしていません。
+echo.
+echo 同じ場所を2台のパソコンで変更したため、自動でまとめられませんでした。
+echo このパソコンの変更は記録済みで、失われていません。
+echo このままの状態で、サポートにご相談ください。
+echo.
+type "%TEMP%\kuricare_merge.txt"
 
 :end
 echo.
