@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>訪問スケジュール — データ構造 v1</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1f2937; --sub:#6b7280; --line:#e5e7eb; --ok:#15803d; --ng:#b91c1c; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  header .ver { font-size:12px; color:var(--sub); }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 60px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:18px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  th { background:#f9fafb; font-weight:600; white-space:nowrap; }
+  code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; background:#f3f4f6; padding:1px 4px; border-radius:4px; }
+  .ok { color:var(--ok); font-weight:600; }
+  .ng { color:var(--ng); font-weight:600; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  button { font:inherit; font-size:13px; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger { color:var(--ng); }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow:auto; font-size:12px; max-height:360px; }
+  .muted { color:var(--sub); font-size:12px; }
+  .counts span { display:inline-block; margin-right:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>訪問スケジュール</h1>
+  <span class="ver">データ構造 v1（画面は未実装。この画面はデータ層の確認用）</span>
+</header>
+<main>
+  <section>
+    <h2>1. データ構造の概要</h2>
+    <p class="muted">保存は localStorage の1キー（<code id="storage-key"></code>）にJSONで保存します。各エンティティの項目一覧は <code>データ構造.md</code> を参照。</p>
+    <div id="schema"></div>
+  </section>
+  <section>
+    <h2>2. セルフテスト</h2>
+    <p class="muted">日付計算・検証・参照整合性・計画展開・保存の往復をブラウザ内で検査します。すべて合格であることを確認してから画面実装に進みます。</p>
+    <div id="test-summary"></div>
+    <table id="test-table"><thead><tr><th>結果</th><th>テスト</th><th>詳細</th></tr></thead><tbody></tbody></table>
+  </section>
+  <section>
+    <h2>3. 保存データの操作</h2>
+    <div class="btns">
+      <button class="primary" id="btn-sample">サンプルデータを読み込む（架空）</button>
+      <button id="btn-export">JSONを書き出す</button>
+      <label><button type="button" onclick="document.getElementById('file-import').click()">JSONを読み込む</button><input type="file" id="file-import" accept="application/json" hidden></label>
+      <button class="danger" id="btn-clear">保存データを全削除</button>
+    </div>
+    <div class="counts" id="counts"></div>
+    <div id="db-errors"></div>
+    <pre id="db-preview"></pre>
+  </section>
+</main>
+
+<!-- =====================================================================
+     データ層（ここから）。画面実装が入っても、この <script id="vs-data"> は
+     純粋なデータ定義・検証・保存のみに保ち、DOM には触れない。
+     ===================================================================== -->
+<script id="vs-data">
+(function (root) {
+'use strict';
+
+/* ------------------------------------------------------------------
+ * 0. 定数
+ * ------------------------------------------------------------------ */
+const SCHEMA_VERSION = 1;
+const STORAGE_KEY = 'houmon_schedule_db';
+const HISTORY_MAX = 300;
+const STORAGE_WARN_BYTES = 4 * 1024 * 1024;   // localStorage の目安上限 5MB に対する警告線
+const MAX_STAFF_PER_VISIT = 2;                 // 複数名訪問は2名まで
+const LONG_VISIT_MIN = 90;                     // 長時間訪問加算の閾値（90分超）
+
+/* 表示名付きの列挙。キーが保存値、値が表示名。 */
+const ENUMS = {
+  insurance: { iryo: '医療保険', kaigo: '介護保険' },
+  careLevel: {
+    none: 'なし', yoshien1: '要支援1', yoshien2: '要支援2',
+    yokaigo1: '要介護1', yokaigo2: '要介護2', yokaigo3: '要介護3', yokaigo4: '要介護4', yokaigo5: '要介護5'
+  },
+  instructionType: {
+    normal: '訪問看護指示書', special: '特別訪問看護指示書',
+    psychiatric: '精神科訪問看護指示書', psychiatricSpecial: '精神科特別訪問看護指示書'
+  },
+  patientStatus: { active: '利用中', hospitalized: '入院中', suspended: '休止', ended: '終了' },
+  staffRole: { NS: '看護師', LPN: '准看護師', PT: '理学療法士', OT: '作業療法士', ST: '言語聴覚士', OTHER: 'その他' },
+  employment: { fulltime: '常勤', parttime: '非常勤' },
+  transport: { car: '車', bike: '自転車・バイク', walk: '徒歩・公共交通' },
+  serviceType: { nursing: '看護', rehab: 'リハビリ' },
+  visitStatus: { planned: '予定', confirmed: '確定', done: '実施', cancelled: 'キャンセル', transferred: '振替元' },
+  visitOrigin: { plan: '計画から展開', manual: '手入力', transfer: '振替' },
+  cancelReason: { patient: '利用者都合', hospital: '入院', office: '事業所都合', weather: '天候・災害', holiday: '休業日', other: 'その他' },
+  holidayKind: { national: '祝日', office: '事業所休業日' },
+  timeBand: { day: '日中', nightEarly: '夜間・早朝', late: '深夜' },
+  recurrence: { weekly: '毎週', biweekly: '隔週', weeksOfMonth: '第N週' }
+};
+
+/* サービス種別ごとに担当できる職種 */
+const ROLE_SERVICE = {
+  nursing: ['NS', 'LPN'],
+  rehab: ['PT', 'OT', 'ST']
+};
+
+/* 訪問ステータスの許可遷移。ここに無い遷移は拒否する。 */
+const STATUS_TRANSITIONS = {
+  planned:     ['confirmed', 'done', 'cancelled', 'transferred'],
+  confirmed:   ['planned', 'done', 'cancelled', 'transferred'],
+  done:        ['confirmed'],      // 実施の取り消し（誤操作の戻し）
+  cancelled:   ['planned'],        // キャンセルの取り消し
+  transferred: []                  // 振替元は固定。戻す場合は振替先を削除する
+};
+
+/* ------------------------------------------------------------------
+ * 1. 日付・時刻ユーティリティ（内部形式: 'YYYY-MM-DD' / 'HH:MM'）
+ * ------------------------------------------------------------------ */
+const pad2 = n => String(n).padStart(2, '0');
+
+function isDateStr(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  if (m < 1 || m > 12 || d < 1) return false;
+  return d <= daysInMonth(y, m);
+}
+function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }   // m: 1-12
+function dateToStr(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function strToDate(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function todayStr() { return dateToStr(new Date()); }
+function addDays(s, n) { const d = strToDate(s); d.setDate(d.getDate() + n); return dateToStr(d); }
+function dowOf(s) { return strToDate(s).getDay(); }                   // 0=日 … 6=土
+function monthDates(y, m) {
+  const n = daysInMonth(y, m), out = [];
+  for (let d = 1; d <= n; d++) out.push(`${y}-${pad2(m)}-${pad2(d)}`);
+  return out;
+}
+/* その月で何回目の同じ曜日か（第N週）。1日〜7日=1, 8日〜14日=2 … */
+function weekOfMonth(s) { return Math.ceil(Number(s.slice(8, 10)) / 7); }
+/* 2日付の差（日数）。b - a */
+function diffDays(a, b) { return Math.round((strToDate(b) - strToDate(a)) / 86400000); }
+/* from/to は null で開区間 */
+function inPeriod(s, from, to) {
+  if (from && s < from) return false;
+  if (to && s > to) return false;
+  return true;
+}
+function periodsOverlap(aFrom, aTo, bFrom, bTo) {
+  const aF = aFrom || '0000-00-00', aT = aTo || '9999-99-99';
+  const bF = bFrom || '0000-00-00', bT = bTo || '9999-99-99';
+  return aF <= bT && bF <= aT;
+}
+
+function isTimeStr(s) {
+  if (typeof s !== 'string' || !/^\d{2}:\d{2}$/.test(s)) return false;
+  const [h, m] = s.split(':').map(Number);
+  return (h >= 0 && h <= 23 && m >= 0 && m <= 59) || (h === 24 && m === 0);
+}
+function toMin(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+function fromMin(n) { return `${pad2(Math.floor(n / 60))}:${pad2(n % 60)}`; }
+function addMin(t, n) { return fromMin(toMin(t) + n); }
+/* 半開区間 [start, end) の重なり判定 */
+function rangesOverlap(aS, aE, bS, bE) { return toMin(aS) < toMin(bE) && toMin(bS) < toMin(aE); }
+/* 訪問開始時刻から時間帯区分を返す（22:00〜06:00=深夜, 06:00〜08:00/18:00〜22:00=夜間・早朝） */
+function timeBandOf(start) {
+  const m = toMin(start);
+  if (m >= 22 * 60 || m < 6 * 60) return 'late';
+  if (m < 8 * 60 || m >= 18 * 60) return 'nightEarly';
+  return 'day';
+}
+
+/* ------------------------------------------------------------------
+ * 2. ID・時刻印
+ * ------------------------------------------------------------------ */
+function genId(prefix) {
+  const t = Date.now().toString(36);
+  const r = Math.random().toString(36).slice(2, 6).padEnd(4, '0');
+  return `${prefix}_${t}${r}`;
+}
+function nowIso() { return new Date().toISOString(); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+/* ------------------------------------------------------------------
+ * 3. ファクトリ（既定値を埋めた新規オブジェクトを返す）
+ * ------------------------------------------------------------------ */
+function createEmptyDb() {
+  const now = nowIso();
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    meta: { createdAt: now, updatedAt: now, stationName: 'サンプル訪問看護ステーション' },
+    settings: {
+      businessDows: [1, 2, 3, 4, 5],          // 営業曜日（0=日）
+      dayStart: '08:00', dayEnd: '20:00',     // 画面の時間軸
+      slotMin: 15,                             // 時間入力の刻み
+      defaultDurationMin: 60
+    },
+    holidays: [],      // Holiday[]
+    patients: [],      // Patient[]
+    staff: [],         // Staff[]
+    plans: [],         // Plan[]
+    visits: [],        // Visit[]
+    history: []        // HistoryEntry[]（上限 HISTORY_MAX）
+  };
+}
+
+function createPatient(o = {}) {
+  const now = nowIso();
+  return Object.assign({
+    id: genId('p'),
+    code: '',                       // 事業所内の管理番号（保険番号は保存しない）
+    name: '',                       // 氏名
+    nameKana: '',
+    displayName: '',                // 画面・印刷用の略称（空なら name）
+    insurance: 'iryo',              // ENUMS.insurance
+    careLevel: 'none',              // ENUMS.careLevel
+    psychiatric: false,             // 精神科訪問看護
+    publicExpense: false,           // 公費あり
+    specialFlags: { betsu7: false, betsu8: false },   // 別表7・別表8
+    instructions: [],               // Instruction[]  { id, type, from, to, note }
+    careManager: '',                // 担当ケアマネ（表示用。必要最小限に）
+    hospital: '',                   // 主治医の医療機関
+    area: '',                       // 訪問エリア（町名程度）
+    requirements: { needsTwoStaff: false, allowedRoles: [] },   // allowedRoles 空=制限なし
+    preferences: {
+      preferredTimeRanges: [],      // { dow, start, end }   dow null=全曜日
+      ngTimeRanges: [],             // { dow, start, end }
+      preferredStaffIds: [],
+      ngStaffIds: [],
+      note: ''
+    },
+    contract: { start: null, end: null },         // 契約期間（end null=継続中）
+    statusPeriods: [],              // { status, from, to, note }  active 以外の期間だけ登録
+    archived: false,
+    note: '',
+    createdAt: now, updatedAt: now
+  }, o);
+}
+
+function createInstruction(o = {}) {
+  return Object.assign({ id: genId('ins'), type: 'normal', from: null, to: null, note: '' }, o);
+}
+
+function createStaff(o = {}) {
+  const now = nowIso();
+  return Object.assign({
+    id: genId('s'),
+    name: '',
+    displayName: '',
+    role: 'NS',                     // ENUMS.staffRole
+    employment: 'fulltime',         // ENUMS.employment
+    skills: [],                     // 'psychiatric' | 'pediatric' | 'terminal' などの自由タグ
+    transport: 'car',
+    color: '#2563eb',               // 画面上の色
+    availability: [                 // 標準の勤務可能枠 { dow, start, end }（②勤務表が入れば日別上書きに置き換わる）
+      { dow: 1, start: '08:30', end: '17:30' }, { dow: 2, start: '08:30', end: '17:30' },
+      { dow: 3, start: '08:30', end: '17:30' }, { dow: 4, start: '08:30', end: '17:30' },
+      { dow: 5, start: '08:30', end: '17:30' }
+    ],
+    employmentPeriod: { start: null, end: null },
+    archived: false,
+    note: '',
+    createdAt: now, updatedAt: now
+  }, o);
+}
+
+function createPlan(o = {}) {
+  const now = nowIso();
+  return Object.assign({
+    id: genId('pl'),
+    patientId: null,
+    serviceType: 'nursing',
+    durationMin: 60,
+    dow: 1,                         // 0=日 … 6=土
+    start: '10:00',
+    staffIds: [],                   // 既定の担当（0〜2名）。空なら未割当で展開
+    recurrence: { kind: 'weekly', anchorDate: null, weeksOfMonth: null },
+    //   weekly: 毎週 / biweekly: anchorDate と同じ週から隔週 / weeksOfMonth: [1,3] など第N週
+    period: { from: null, to: null },
+    archived: false,
+    note: '',
+    createdAt: now, updatedAt: now
+  }, o);
+}
+
+function createVisit(o = {}) {
+  const now = nowIso();
+  return Object.assign({
+    id: genId('v'),
+    date: null,                     // 'YYYY-MM-DD'
+    start: null, end: null,         // 'HH:MM'
+    patientId: null,
+    staffIds: [],                   // 0〜2名。2名=複数名訪問
+    serviceType: 'nursing',
+    planId: null,                   // 計画から展開した場合の元計画
+    origin: 'manual',               // ENUMS.visitOrigin
+    status: 'planned',              // ENUMS.visitStatus
+    cancelReason: null,             // status=cancelled のとき必須
+    transferredToId: null,          // status=transferred のとき必須（振替先の visit）
+    transferredFromId: null,        // origin=transfer のとき必須（振替元の visit）
+    flags: { emergency: false, training: false },   // 緊急訪問 / 研修同行（複数名加算の対象外）
+    actual: null,                   // 実施後 { start, end }。null=未実施
+    note: '',
+    createdAt: now, updatedAt: now
+  }, o);
+}
+
+function createHoliday(o = {}) {
+  return Object.assign({ date: null, name: '', kind: 'office' }, o);
+}
+
+/* ------------------------------------------------------------------
+ * 4. 検証。各関数は [{ path, msg }] を返す（空配列=合格）
+ * ------------------------------------------------------------------ */
+const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const isStr = v => typeof v === 'string';
+const isBool = v => typeof v === 'boolean';
+const isInt = v => Number.isInteger(v);
+const isEnum = (v, e) => isStr(v) && Object.prototype.hasOwnProperty.call(e, v);
+
+function checkPeriod(errs, path, p, { required = false } = {}) {
+  if (!isObj(p)) { errs.push({ path, msg: '期間がありません' }); return; }
+  for (const k of ['from', 'to', 'start', 'end']) {
+    if (k in p && p[k] !== null && !isDateStr(p[k])) errs.push({ path: `${path}.${k}`, msg: `日付の形式が不正です（${p[k]}）` });
+  }
+  const a = p.from ?? p.start ?? null, b = p.to ?? p.end ?? null;
+  if (required && !a) errs.push({ path: `${path}.from`, msg: '開始日は必須です' });
+  if (a && b && isDateStr(a) && isDateStr(b) && a > b) errs.push({ path, msg: '開始日が終了日より後です' });
+}
+function checkTimeRange(errs, path, r, { allowDowNull = true } = {}) {
+  if (!isObj(r)) { errs.push({ path, msg: '時間枠がありません' }); return; }
+  if (!(allowDowNull && r.dow === null) && !(isInt(r.dow) && r.dow >= 0 && r.dow <= 6)) errs.push({ path: `${path}.dow`, msg: '曜日は0〜6です' });
+  if (!isTimeStr(r.start)) errs.push({ path: `${path}.start`, msg: '開始時刻の形式が不正です' });
+  if (!isTimeStr(r.end)) errs.push({ path: `${path}.end`, msg: '終了時刻の形式が不正です' });
+  if (isTimeStr(r.start) && isTimeStr(r.end) && toMin(r.start) >= toMin(r.end)) errs.push({ path, msg: '開始時刻が終了時刻以降です' });
+}
+function checkIdArray(errs, path, arr, max) {
+  if (!Array.isArray(arr)) { errs.push({ path, msg: '配列ではありません' }); return; }
+  if (arr.some(x => !isStr(x) || !x)) errs.push({ path, msg: 'IDが不正です' });
+  if (new Set(arr).size !== arr.length) errs.push({ path, msg: 'IDが重複しています' });
+  if (max !== undefined && arr.length > max) errs.push({ path, msg: `${max}件までです` });
+}
+
+function validatePatient(p) {
+  const e = [];
+  if (!isObj(p)) return [{ path: '', msg: '利用者がオブジェクトではありません' }];
+  if (!isStr(p.id) || !p.id) e.push({ path: 'id', msg: 'IDは必須です' });
+  if (!isStr(p.name) || !p.name.trim()) e.push({ path: 'name', msg: '氏名は必須です' });
+  if (!isEnum(p.insurance, ENUMS.insurance)) e.push({ path: 'insurance', msg: '保険種別が不正です' });
+  if (!isEnum(p.careLevel, ENUMS.careLevel)) e.push({ path: 'careLevel', msg: '要介護度が不正です' });
+  if (p.insurance === 'kaigo' && p.careLevel === 'none') e.push({ path: 'careLevel', msg: '介護保険の場合は要介護度が必要です' });
+  if (!isBool(p.psychiatric)) e.push({ path: 'psychiatric', msg: '真偽値が必要です' });
+  if (!isBool(p.publicExpense)) e.push({ path: 'publicExpense', msg: '真偽値が必要です' });
+  if (!isObj(p.specialFlags) || !isBool(p.specialFlags.betsu7) || !isBool(p.specialFlags.betsu8)) e.push({ path: 'specialFlags', msg: '別表7・8のフラグが不正です' });
+  if (!Array.isArray(p.instructions)) e.push({ path: 'instructions', msg: '配列ではありません' });
+  else p.instructions.forEach((ins, i) => {
+    if (!isObj(ins) || !isStr(ins.id)) { e.push({ path: `instructions[${i}]`, msg: '指示書が不正です' }); return; }
+    if (!isEnum(ins.type, ENUMS.instructionType)) e.push({ path: `instructions[${i}].type`, msg: '指示書種別が不正です' });
+    checkPeriod(e, `instructions[${i}]`, ins, { required: true });
+    if (!ins.to) e.push({ path: `instructions[${i}].to`, msg: '指示書には終了日が必要です' });
+  });
+  if (!isObj(p.requirements) || !isBool(p.requirements.needsTwoStaff) || !Array.isArray(p.requirements.allowedRoles)
+      || p.requirements.allowedRoles.some(r => !isEnum(r, ENUMS.staffRole))) e.push({ path: 'requirements', msg: '要件が不正です' });
+  if (!isObj(p.preferences)) e.push({ path: 'preferences', msg: '希望条件がありません' });
+  else {
+    (p.preferences.preferredTimeRanges || []).forEach((r, i) => checkTimeRange(e, `preferences.preferredTimeRanges[${i}]`, r));
+    (p.preferences.ngTimeRanges || []).forEach((r, i) => checkTimeRange(e, `preferences.ngTimeRanges[${i}]`, r));
+    checkIdArray(e, 'preferences.preferredStaffIds', p.preferences.preferredStaffIds);
+    checkIdArray(e, 'preferences.ngStaffIds', p.preferences.ngStaffIds);
+    const both = (p.preferences.preferredStaffIds || []).filter(x => (p.preferences.ngStaffIds || []).includes(x));
+    if (both.length) e.push({ path: 'preferences', msg: '希望担当とNG担当に同じスタッフがいます' });
+  }
+  checkPeriod(e, 'contract', p.contract || null);
+  if (!Array.isArray(p.statusPeriods)) e.push({ path: 'statusPeriods', msg: '配列ではありません' });
+  else {
+    p.statusPeriods.forEach((sp, i) => {
+      if (!isObj(sp)) { e.push({ path: `statusPeriods[${i}]`, msg: '不正です' }); return; }
+      if (!isEnum(sp.status, ENUMS.patientStatus) || sp.status === 'active') e.push({ path: `statusPeriods[${i}].status`, msg: '状態は入院中・休止・終了のいずれかです' });
+      checkPeriod(e, `statusPeriods[${i}]`, sp, { required: true });
+    });
+    const valid = p.statusPeriods.filter(sp => isObj(sp) && isDateStr(sp.from) && (sp.to === null || isDateStr(sp.to)));
+    for (let i = 0; i < valid.length; i++) for (let j = i + 1; j < valid.length; j++) {
+      if (periodsOverlap(valid[i].from, valid[i].to, valid[j].from, valid[j].to)) e.push({ path: 'statusPeriods', msg: '状態期間が重なっています' });
+    }
+  }
+  if (!isBool(p.archived)) e.push({ path: 'archived', msg: '真偽値が必要です' });
+  return e;
+}
+
+function validateStaff(s) {
+  const e = [];
+  if (!isObj(s)) return [{ path: '', msg: 'スタッフがオブジェクトではありません' }];
+  if (!isStr(s.id) || !s.id) e.push({ path: 'id', msg: 'IDは必須です' });
+  if (!isStr(s.name) || !s.name.trim()) e.push({ path: 'name', msg: '氏名は必須です' });
+  if (!isEnum(s.role, ENUMS.staffRole)) e.push({ path: 'role', msg: '職種が不正です' });
+  if (!isEnum(s.employment, ENUMS.employment)) e.push({ path: 'employment', msg: '雇用形態が不正です' });
+  if (!isEnum(s.transport, ENUMS.transport)) e.push({ path: 'transport', msg: '移動手段が不正です' });
+  if (!Array.isArray(s.skills) || s.skills.some(x => !isStr(x))) e.push({ path: 'skills', msg: '文字列の配列が必要です' });
+  if (!isStr(s.color) || !/^#[0-9a-fA-F]{6}$/.test(s.color)) e.push({ path: 'color', msg: '色は #rrggbb 形式です' });
+  if (!Array.isArray(s.availability)) e.push({ path: 'availability', msg: '配列ではありません' });
+  else s.availability.forEach((r, i) => checkTimeRange(e, `availability[${i}]`, r, { allowDowNull: false }));
+  checkPeriod(e, 'employmentPeriod', s.employmentPeriod || null);
+  if (!isBool(s.archived)) e.push({ path: 'archived', msg: '真偽値が必要です' });
+  return e;
+}
+
+function validatePlan(pl) {
+  const e = [];
+  if (!isObj(pl)) return [{ path: '', msg: '計画がオブジェクトではありません' }];
+  if (!isStr(pl.id) || !pl.id) e.push({ path: 'id', msg: 'IDは必須です' });
+  if (!isStr(pl.patientId) || !pl.patientId) e.push({ path: 'patientId', msg: '利用者は必須です' });
+  if (!isEnum(pl.serviceType, ENUMS.serviceType)) e.push({ path: 'serviceType', msg: 'サービス種別が不正です' });
+  if (!isInt(pl.durationMin) || pl.durationMin <= 0 || pl.durationMin > 600) e.push({ path: 'durationMin', msg: '所要時間は1〜600分です' });
+  if (!isInt(pl.dow) || pl.dow < 0 || pl.dow > 6) e.push({ path: 'dow', msg: '曜日は0〜6です' });
+  if (!isTimeStr(pl.start) || pl.start === '24:00') e.push({ path: 'start', msg: '開始時刻が不正です' });
+  else if (isInt(pl.durationMin) && toMin(pl.start) + pl.durationMin > 24 * 60) e.push({ path: 'durationMin', msg: '終了が翌日にまたがります' });
+  checkIdArray(e, 'staffIds', pl.staffIds, MAX_STAFF_PER_VISIT);
+  const r = pl.recurrence;
+  if (!isObj(r) || !isEnum(r.kind, ENUMS.recurrence)) e.push({ path: 'recurrence.kind', msg: '繰り返し種別が不正です' });
+  else {
+    if (r.kind === 'biweekly' && !isDateStr(r.anchorDate)) e.push({ path: 'recurrence.anchorDate', msg: '隔週には基準日が必要です' });
+    if (r.kind === 'weeksOfMonth' && !(Array.isArray(r.weeksOfMonth) && r.weeksOfMonth.length && r.weeksOfMonth.every(w => isInt(w) && w >= 1 && w <= 5)))
+      e.push({ path: 'recurrence.weeksOfMonth', msg: '第N週は1〜5の配列です' });
+    if (r.anchorDate !== null && r.anchorDate !== undefined && !isDateStr(r.anchorDate)) e.push({ path: 'recurrence.anchorDate', msg: '基準日の形式が不正です' });
+  }
+  checkPeriod(e, 'period', pl.period || null);
+  if (!isBool(pl.archived)) e.push({ path: 'archived', msg: '真偽値が必要です' });
+  return e;
+}
+
+function validateVisit(v) {
+  const e = [];
+  if (!isObj(v)) return [{ path: '', msg: '訪問がオブジェクトではありません' }];
+  if (!isStr(v.id) || !v.id) e.push({ path: 'id', msg: 'IDは必須です' });
+  if (!isDateStr(v.date)) e.push({ path: 'date', msg: '日付の形式が不正です' });
+  if (!isTimeStr(v.start) || v.start === '24:00') e.push({ path: 'start', msg: '開始時刻が不正です' });
+  if (!isTimeStr(v.end)) e.push({ path: 'end', msg: '終了時刻が不正です' });
+  if (isTimeStr(v.start) && isTimeStr(v.end) && toMin(v.start) >= toMin(v.end)) e.push({ path: 'end', msg: '終了時刻は開始時刻より後にしてください' });
+  if (!isStr(v.patientId) || !v.patientId) e.push({ path: 'patientId', msg: '利用者は必須です' });
+  checkIdArray(e, 'staffIds', v.staffIds, MAX_STAFF_PER_VISIT);
+  if (!isEnum(v.serviceType, ENUMS.serviceType)) e.push({ path: 'serviceType', msg: 'サービス種別が不正です' });
+  if (v.planId !== null && (!isStr(v.planId) || !v.planId)) e.push({ path: 'planId', msg: '計画IDが不正です' });
+  if (!isEnum(v.origin, ENUMS.visitOrigin)) e.push({ path: 'origin', msg: '作成元が不正です' });
+  if (!isEnum(v.status, ENUMS.visitStatus)) e.push({ path: 'status', msg: 'ステータスが不正です' });
+  if (v.status === 'cancelled' && !isEnum(v.cancelReason, ENUMS.cancelReason)) e.push({ path: 'cancelReason', msg: 'キャンセル理由は必須です' });
+  if (v.status !== 'cancelled' && v.cancelReason !== null) e.push({ path: 'cancelReason', msg: 'キャンセル以外では理由を空にしてください' });
+  if (v.status === 'transferred' && (!isStr(v.transferredToId) || !v.transferredToId)) e.push({ path: 'transferredToId', msg: '振替先は必須です' });
+  if (v.status !== 'transferred' && v.transferredToId !== null) e.push({ path: 'transferredToId', msg: '振替元以外では振替先を空にしてください' });
+  if (v.origin === 'transfer' && (!isStr(v.transferredFromId) || !v.transferredFromId)) e.push({ path: 'transferredFromId', msg: '振替元は必須です' });
+  if (v.origin !== 'transfer' && v.transferredFromId !== null) e.push({ path: 'transferredFromId', msg: '振替以外では振替元を空にしてください' });
+  if (v.origin === 'plan' && (!isStr(v.planId) || !v.planId)) e.push({ path: 'planId', msg: '計画から展開した訪問には計画IDが必要です' });
+  if (!isObj(v.flags) || !isBool(v.flags.emergency) || !isBool(v.flags.training)) e.push({ path: 'flags', msg: 'フラグが不正です' });
+  if (v.actual !== null) {
+    if (!isObj(v.actual) || !isTimeStr(v.actual.start) || !isTimeStr(v.actual.end)) e.push({ path: 'actual', msg: '実績時刻の形式が不正です' });
+    else if (toMin(v.actual.start) >= toMin(v.actual.end)) e.push({ path: 'actual', msg: '実績の終了時刻は開始時刻より後にしてください' });
+  }
+  if (v.status === 'done' && v.actual === null) e.push({ path: 'actual', msg: '実施済みには実績時刻が必要です' });
+  return e;
+}
+
+function validateHoliday(h) {
+  const e = [];
+  if (!isObj(h)) return [{ path: '', msg: '休日がオブジェクトではありません' }];
+  if (!isDateStr(h.date)) e.push({ path: 'date', msg: '日付の形式が不正です' });
+  if (!isEnum(h.kind, ENUMS.holidayKind)) e.push({ path: 'kind', msg: '休日種別が不正です' });
+  if (!isStr(h.name)) e.push({ path: 'name', msg: '名称は文字列です' });
+  return e;
+}
+
+/* DB 全体: 各エンティティ + ID一意性 + 参照整合性 */
+function validateDb(db) {
+  const e = [];
+  if (!isObj(db)) return [{ path: '', msg: 'データがオブジェクトではありません' }];
+  if (db.schemaVersion !== SCHEMA_VERSION) e.push({ path: 'schemaVersion', msg: `スキーマ版が ${SCHEMA_VERSION} ではありません` });
+  for (const k of ['holidays', 'patients', 'staff', 'plans', 'visits', 'history']) {
+    if (!Array.isArray(db[k])) e.push({ path: k, msg: '配列ではありません' });
+  }
+  if (!isObj(db.settings)) e.push({ path: 'settings', msg: '設定がありません' });
+  else {
+    const s = db.settings;
+    if (!Array.isArray(s.businessDows) || s.businessDows.some(d => !isInt(d) || d < 0 || d > 6)) e.push({ path: 'settings.businessDows', msg: '営業曜日が不正です' });
+    if (!isTimeStr(s.dayStart) || !isTimeStr(s.dayEnd) || toMin(s.dayStart) >= toMin(s.dayEnd)) e.push({ path: 'settings.dayStart', msg: '時間軸の範囲が不正です' });
+    if (![5, 10, 15, 30, 60].includes(s.slotMin)) e.push({ path: 'settings.slotMin', msg: '刻みは 5/10/15/30/60 分です' });
+    if (!isInt(s.defaultDurationMin) || s.defaultDurationMin <= 0) e.push({ path: 'settings.defaultDurationMin', msg: '既定所要時間が不正です' });
+  }
+  if (e.length) return e;   // 骨格が壊れていれば以降は見ない
+
+  const collect = (arr, fn, label) => {
+    const ids = new Set();
+    arr.forEach((x, i) => {
+      fn(x).forEach(err => e.push({ path: `${label}[${i}].${err.path}`, msg: err.msg }));
+      if (x && x.id) { if (ids.has(x.id)) e.push({ path: `${label}[${i}].id`, msg: `IDが重複しています（${x.id}）` }); ids.add(x.id); }
+    });
+    return ids;
+  };
+  const patientIds = collect(db.patients, validatePatient, 'patients');
+  const staffIds = collect(db.staff, validateStaff, 'staff');
+  const planIds = collect(db.plans, validatePlan, 'plans');
+  const visitIds = collect(db.visits, validateVisit, 'visits');
+  const hol = new Set();
+  db.holidays.forEach((h, i) => {
+    validateHoliday(h).forEach(err => e.push({ path: `holidays[${i}].${err.path}`, msg: err.msg }));
+    const key = `${h && h.date}|${h && h.kind}`;
+    if (hol.has(key)) e.push({ path: `holidays[${i}]`, msg: '同じ日付・種別の休日が重複しています' });
+    hol.add(key);
+  });
+
+  // 参照整合性
+  db.patients.forEach((p, i) => {
+    const pref = p.preferences || {};
+    (pref.preferredStaffIds || []).concat(pref.ngStaffIds || []).forEach(id => {
+      if (!staffIds.has(id)) e.push({ path: `patients[${i}].preferences`, msg: `存在しないスタッフを参照しています（${id}）` });
+    });
+  });
+  db.plans.forEach((pl, i) => {
+    if (!patientIds.has(pl.patientId)) e.push({ path: `plans[${i}].patientId`, msg: `存在しない利用者を参照しています（${pl.patientId}）` });
+    (pl.staffIds || []).forEach(id => { if (!staffIds.has(id)) e.push({ path: `plans[${i}].staffIds`, msg: `存在しないスタッフを参照しています（${id}）` }); });
+  });
+  const visitById = new Map(db.visits.map(v => [v.id, v]));
+  db.visits.forEach((v, i) => {
+    if (!patientIds.has(v.patientId)) e.push({ path: `visits[${i}].patientId`, msg: `存在しない利用者を参照しています（${v.patientId}）` });
+    (v.staffIds || []).forEach(id => { if (!staffIds.has(id)) e.push({ path: `visits[${i}].staffIds`, msg: `存在しないスタッフを参照しています（${id}）` }); });
+    if (v.planId && !planIds.has(v.planId)) e.push({ path: `visits[${i}].planId`, msg: `存在しない計画を参照しています（${v.planId}）` });
+    if (v.transferredToId) {
+      const t = visitById.get(v.transferredToId);
+      if (!t) e.push({ path: `visits[${i}].transferredToId`, msg: '振替先の訪問が存在しません' });
+      else if (t.transferredFromId !== v.id) e.push({ path: `visits[${i}].transferredToId`, msg: '振替先から振替元への参照が一致しません' });
+    }
+    if (v.transferredFromId) {
+      const f = visitById.get(v.transferredFromId);
+      if (!f) e.push({ path: `visits[${i}].transferredFromId`, msg: '振替元の訪問が存在しません' });
+      else if (f.transferredToId !== v.id) e.push({ path: `visits[${i}].transferredFromId`, msg: '振替元から振替先への参照が一致しません' });
+    }
+  });
+  return e;
+}
+
+/* ------------------------------------------------------------------
+ * 5. 派生値（保存しない。必要なときに計算する）
+ * ------------------------------------------------------------------ */
+function visitDurationMin(v) { return toMin(v.end) - toMin(v.start); }
+function visitTimeBand(v) { return timeBandOf(v.start); }
+function isLongVisit(v) { return visitDurationMin(v) > LONG_VISIT_MIN; }
+function isTwoStaffVisit(v) { return v.staffIds.length === 2 && !v.flags.training; }
+function isActiveVisit(v) { return v.status !== 'cancelled' && v.status !== 'transferred'; }
+function patientDisplayName(p) { return p.displayName || p.name; }
+function staffDisplayName(s) { return s.displayName || s.name; }
+
+/* 利用者のある日の状態。契約外=ended、statusPeriods に該当があればその状態、なければ active */
+function patientStatusOn(p, date) {
+  const c = p.contract || {};
+  if (!inPeriod(date, c.start, c.end)) return 'ended';
+  const sp = (p.statusPeriods || []).find(x => inPeriod(date, x.from, x.to));
+  return sp ? sp.status : 'active';
+}
+/* 有効な指示書があるか */
+function hasValidInstruction(p, date) {
+  return (p.instructions || []).some(ins => inPeriod(date, ins.from, ins.to));
+}
+function isHoliday(db, date) { return db.holidays.some(h => h.date === date); }
+function isBusinessDay(db, date) { return db.settings.businessDows.includes(dowOf(date)) && !isHoliday(db, date); }
+/* スタッフがその日時に勤務可能か（標準枠ベース） */
+function staffAvailable(s, date, start, end) {
+  const ep = s.employmentPeriod || {};
+  if (!inPeriod(date, ep.start, ep.end)) return false;
+  const dow = dowOf(date);
+  return s.availability.some(a => a.dow === dow && toMin(a.start) <= toMin(start) && toMin(end) <= toMin(a.end));
+}
+
+/* ------------------------------------------------------------------
+ * 6. ルール（純粋関数。DB は変更しない）
+ * ------------------------------------------------------------------ */
+/* 同じスタッフが同日同時刻に別の訪問を持っていないか */
+function findStaffConflicts(db, visit) {
+  if (!visit.staffIds.length) return [];
+  return db.visits.filter(o => o.id !== visit.id && o.date === visit.date && isActiveVisit(o)
+    && o.staffIds.some(id => visit.staffIds.includes(id))
+    && rangesOverlap(visit.start, visit.end, o.start, o.end));
+}
+/* 同じ利用者が同日同時刻に別の訪問を持っていないか */
+function findPatientConflicts(db, visit) {
+  return db.visits.filter(o => o.id !== visit.id && o.date === visit.date && isActiveVisit(o)
+    && o.patientId === visit.patientId && rangesOverlap(visit.start, visit.end, o.start, o.end));
+}
+/* ハード制約をまとめて判定。戻り値 [{ code, msg }]。空=問題なし */
+function checkVisitRules(db, visit) {
+  const out = [];
+  const p = db.patients.find(x => x.id === visit.patientId);
+  if (!p) return [{ code: 'noPatient', msg: '利用者が見つかりません' }];
+  const st = patientStatusOn(p, visit.date);
+  if (st !== 'active') out.push({ code: 'patientStatus', msg: `利用者はこの日「${ENUMS.patientStatus[st]}」です` });
+  if (!hasValidInstruction(p, visit.date)) out.push({ code: 'noInstruction', msg: 'この日に有効な指示書がありません' });
+  const allowed = ROLE_SERVICE[visit.serviceType] || [];
+  visit.staffIds.forEach(id => {
+    const s = db.staff.find(x => x.id === id);
+    if (!s) { out.push({ code: 'noStaff', msg: `スタッフが見つかりません（${id}）` }); return; }
+    if (!allowed.includes(s.role) && !(visit.staffIds.length === 2 && visit.staffIds[0] !== id))
+      out.push({ code: 'roleMismatch', msg: `${staffDisplayName(s)}（${ENUMS.staffRole[s.role]}）は「${ENUMS.serviceType[visit.serviceType]}」を担当できません` });
+    if (!staffAvailable(s, visit.date, visit.start, visit.end)) out.push({ code: 'staffUnavailable', msg: `${staffDisplayName(s)} はこの時間帯に勤務予定がありません` });
+    if ((p.preferences.ngStaffIds || []).includes(id)) out.push({ code: 'ngStaff', msg: `${staffDisplayName(s)} はこの利用者のNG担当です` });
+    if (p.requirements.allowedRoles.length && !p.requirements.allowedRoles.includes(s.role))
+      out.push({ code: 'roleNotAllowed', msg: `${staffDisplayName(s)} の職種はこの利用者の対応可能職種に含まれていません` });
+  });
+  if (p.requirements.needsTwoStaff && visit.staffIds.length < 2) out.push({ code: 'needsTwoStaff', msg: 'この利用者は2名訪問が必要です' });
+  if (findStaffConflicts(db, visit).length) out.push({ code: 'staffOverlap', msg: '担当スタッフの時間が別の訪問と重なっています' });
+  if (findPatientConflicts(db, visit).length) out.push({ code: 'patientOverlap', msg: '利用者の時間が別の訪問と重なっています' });
+  return out;
+}
+
+/* ステータス遷移。許可されない遷移は例外を投げる。戻り値は更新後の新オブジェクト */
+function changeVisitStatus(visit, next, extra = {}) {
+  const allowed = STATUS_TRANSITIONS[visit.status] || [];
+  if (!allowed.includes(next)) throw new Error(`「${ENUMS.visitStatus[visit.status]}」から「${ENUMS.visitStatus[next]}」へは変更できません`);
+  const v = clone(visit);
+  v.status = next;
+  v.cancelReason = next === 'cancelled' ? (extra.cancelReason || 'other') : null;
+  v.transferredToId = next === 'transferred' ? (extra.transferredToId || null) : null;
+  if (next === 'done') v.actual = extra.actual || { start: v.start, end: v.end };
+  if (next === 'planned' || next === 'confirmed') v.actual = null;
+  v.updatedAt = nowIso();
+  return v;
+}
+
+/* 計画を指定月に展開して、未保存の Visit 配列と、見送った日の一覧を返す */
+function expandPlan(db, plan, year, month) {
+  const patient = db.patients.find(p => p.id === plan.patientId);
+  const visits = [], skipped = [];
+  if (!patient) return { visits, skipped: [{ date: null, reason: 'noPatient' }] };
+  const r = plan.recurrence;
+  for (const date of monthDates(year, month)) {
+    if (dowOf(date) !== plan.dow) continue;
+    if (!inPeriod(date, plan.period.from, plan.period.to)) continue;
+    if (r.kind === 'biweekly') {
+      // 基準日以降で最初に計画の曜日になる日を起点にし、そこから2週おきに該当させる
+      let origin = r.anchorDate;
+      while (dowOf(origin) !== plan.dow) origin = addDays(origin, 1);
+      const weeks = diffDays(origin, date) / 7;
+      if (((weeks % 2) + 2) % 2 !== 0) continue;
+    }
+    if (r.kind === 'weeksOfMonth' && !r.weeksOfMonth.includes(weekOfMonth(date))) continue;
+    const st = patientStatusOn(patient, date);
+    if (st !== 'active') { skipped.push({ date, reason: 'patientStatus', detail: st }); continue; }
+    if (isHoliday(db, date)) { skipped.push({ date, reason: 'holiday' }); continue; }
+    if (db.visits.some(v => v.planId === plan.id && v.date === date)) { skipped.push({ date, reason: 'exists' }); continue; }
+    visits.push(createVisit({
+      date, start: plan.start, end: addMin(plan.start, plan.durationMin),
+      patientId: plan.patientId, staffIds: plan.staffIds.slice(),
+      serviceType: plan.serviceType, planId: plan.id, origin: 'plan'
+    }));
+  }
+  return { visits, skipped };
+}
+
+/* ------------------------------------------------------------------
+ * 7. リポジトリ（DB 配列への追加・更新・無効化。履歴も残す）
+ * ------------------------------------------------------------------ */
+function pushHistory(db, entry) {
+  db.history.push(Object.assign({ at: nowIso() }, entry));
+  if (db.history.length > HISTORY_MAX) db.history.splice(0, db.history.length - HISTORY_MAX);
+}
+function makeRepo(collection, validator, label) {
+  return {
+    get(db, id) { return db[collection].find(x => x.id === id) || null; },
+    list(db, { includeArchived = false } = {}) {
+      return db[collection].filter(x => includeArchived || !x.archived);
+    },
+    add(db, obj) {
+      const errs = validator(obj);
+      if (errs.length) throw new ValidationError(`${label}の内容に誤りがあります`, errs);
+      if (db[collection].some(x => x.id === obj.id)) throw new ValidationError(`${label}のIDが重複しています`, [{ path: 'id', msg: obj.id }]);
+      db[collection].push(obj);
+      pushHistory(db, { action: 'add', entity: collection, entityId: obj.id, after: clone(obj) });
+      return obj;
+    },
+    update(db, id, patch) {
+      const i = db[collection].findIndex(x => x.id === id);
+      if (i < 0) throw new ValidationError(`${label}が見つかりません`, [{ path: 'id', msg: id }]);
+      const before = db[collection][i];
+      const after = Object.assign(clone(before), patch, { id, updatedAt: nowIso() });
+      const errs = validator(after);
+      if (errs.length) throw new ValidationError(`${label}の内容に誤りがあります`, errs);
+      db[collection][i] = after;
+      pushHistory(db, { action: 'update', entity: collection, entityId: id, before: clone(before), after: clone(after) });
+      return after;
+    },
+    /* 物理削除はしない。archived=true にして画面から隠す */
+    archive(db, id) { return this.update(db, id, { archived: true }); },
+    restore(db, id) { return this.update(db, id, { archived: false }); }
+  };
+}
+class ValidationError extends Error {
+  constructor(message, errors) { super(message); this.name = 'ValidationError'; this.errors = errors || []; }
+}
+const patients = makeRepo('patients', validatePatient, '利用者');
+const staff = makeRepo('staff', validateStaff, 'スタッフ');
+const plans = makeRepo('plans', validatePlan, '訪問計画');
+const visits = Object.assign(makeRepo('visits', validateVisit, '訪問'), {
+  /* 訪問は物理削除できる。ただし振替で参照されているものは不可 */
+  remove(db, id) {
+    const i = db.visits.findIndex(x => x.id === id);
+    if (i < 0) throw new ValidationError('訪問が見つかりません', [{ path: 'id', msg: id }]);
+    if (db.visits.some(v => v.transferredFromId === id || v.transferredToId === id))
+      throw new ValidationError('振替で参照されている訪問は削除できません', [{ path: 'id', msg: id }]);
+    const [removed] = db.visits.splice(i, 1);
+    pushHistory(db, { action: 'remove', entity: 'visits', entityId: id, before: clone(removed) });
+    return removed;
+  },
+  /* 振替: 元を transferred にし、新しい日時の訪問を追加する。双方向参照を同時に作る */
+  transfer(db, id, { date, start, end, staffIds }) {
+    const src = this.get(db, id);
+    if (!src) throw new ValidationError('訪問が見つかりません', [{ path: 'id', msg: id }]);
+    const dst = createVisit({
+      date, start, end: end || addMin(start, visitDurationMin(src)),
+      patientId: src.patientId, staffIds: staffIds || src.staffIds.slice(),
+      serviceType: src.serviceType, planId: src.planId, origin: 'transfer', transferredFromId: src.id
+    });
+    const errs = validateVisit(dst);
+    if (errs.length) throw new ValidationError('振替先の内容に誤りがあります', errs);
+    const updated = changeVisitStatus(src, 'transferred', { transferredToId: dst.id });
+    db.visits[db.visits.findIndex(x => x.id === id)] = updated;
+    db.visits.push(dst);
+    pushHistory(db, { action: 'transfer', entity: 'visits', entityId: id, before: clone(src), after: clone(dst) });
+    return dst;
+  },
+  setStatus(db, id, next, extra) {
+    const i = db.visits.findIndex(x => x.id === id);
+    if (i < 0) throw new ValidationError('訪問が見つかりません', [{ path: 'id', msg: id }]);
+    const before = db.visits[i];
+    const after = changeVisitStatus(before, next, extra);
+    const errs = validateVisit(after);
+    if (errs.length) throw new ValidationError('訪問の内容に誤りがあります', errs);
+    db.visits[i] = after;
+    pushHistory(db, { action: 'status', entity: 'visits', entityId: id, before: clone(before), after: clone(after) });
+    return after;
+  }
+});
+const holidays = {
+  add(db, h) {
+    const errs = validateHoliday(h);
+    if (errs.length) throw new ValidationError('休日の内容に誤りがあります', errs);
+    if (db.holidays.some(x => x.date === h.date && x.kind === h.kind)) throw new ValidationError('同じ休日が登録済みです', [{ path: 'date', msg: h.date }]);
+    db.holidays.push(h);
+    db.holidays.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    pushHistory(db, { action: 'add', entity: 'holidays', entityId: `${h.date}|${h.kind}`, after: clone(h) });
+    return h;
+  },
+  remove(db, date, kind) {
+    const i = db.holidays.findIndex(x => x.date === date && x.kind === kind);
+    if (i < 0) return null;
+    const [removed] = db.holidays.splice(i, 1);
+    pushHistory(db, { action: 'remove', entity: 'holidays', entityId: `${date}|${kind}`, before: clone(removed) });
+    return removed;
+  }
+};
+
+/* ------------------------------------------------------------------
+ * 8. 保存・読込・移行
+ * ------------------------------------------------------------------ */
+/* 将来 schemaVersion を上げたら、ここに (旧→新) の変換を追加する */
+const MIGRATIONS = {
+  // 2: db => { ...; db.schemaVersion = 2; return db; }
+};
+function migrate(raw) {
+  if (!isObj(raw)) throw new Error('データの形式が不正です');
+  let db = raw;
+  let v = Number.isInteger(db.schemaVersion) ? db.schemaVersion : 1;
+  if (v > SCHEMA_VERSION) throw new Error(`このデータは新しい版（v${v}）で保存されています。アプリを更新してください`);
+  while (v < SCHEMA_VERSION) {
+    const step = MIGRATIONS[v + 1];
+    if (!step) throw new Error(`v${v} から v${v + 1} への移行手順がありません`);
+    db = step(db);
+    v = db.schemaVersion;
+  }
+  // 欠けている配列や設定は既定値で補う（旧データ・手編集データへの耐性）
+  const empty = createEmptyDb();
+  for (const k of ['holidays', 'patients', 'staff', 'plans', 'visits', 'history']) if (!Array.isArray(db[k])) db[k] = [];
+  db.settings = Object.assign({}, empty.settings, isObj(db.settings) ? db.settings : {});
+  db.meta = Object.assign({}, empty.meta, isObj(db.meta) ? db.meta : {});
+  db.schemaVersion = SCHEMA_VERSION;
+  return db;
+}
+
+function serialize(db) { return JSON.stringify(db); }
+function exportJson(db) { return JSON.stringify(db, null, 2); }
+
+/* テキスト → DB。{ db, errors } を返す。errors が空でなければ保存前に修正が必要 */
+function parseDb(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch (err) { throw new Error('JSONとして読み取れません: ' + err.message); }
+  const db = migrate(raw);
+  return { db, errors: validateDb(db) };
+}
+
+/* storage は localStorage 互換（getItem/setItem/removeItem）。テストでは差し替える */
+function load(storage) {
+  const text = storage.getItem(STORAGE_KEY);
+  if (text === null) return { db: createEmptyDb(), errors: [], fresh: true };
+  try {
+    const { db, errors } = parseDb(text);
+    return { db, errors, fresh: false };
+  } catch (err) {
+    // 壊れたデータは消さずに別キーへ退避し、空のDBで起動する
+    let backupKey = `${STORAGE_KEY}_broken_${Date.now()}`;
+    try { storage.setItem(backupKey, text); } catch (_) { backupKey = null; }
+    return { db: createEmptyDb(), errors: [{ path: '', msg: err.message }], fresh: true, backupKey };
+  }
+}
+function save(db, storage) {
+  const errors = validateDb(db);
+  if (errors.length) return { ok: false, errors };
+  db.meta.updatedAt = nowIso();
+  const text = serialize(db);
+  const bytes = new TextEncoder().encode(text).length;
+  try { storage.setItem(STORAGE_KEY, text); }
+  catch (err) { return { ok: false, errors: [{ path: '', msg: '保存できませんでした（容量超過の可能性）: ' + err.message }], bytes }; }
+  return { ok: true, errors: [], bytes, warn: bytes > STORAGE_WARN_BYTES ? '保存容量が上限に近づいています。古い月の訪問を書き出して整理してください' : null };
+}
+function clear(storage) { storage.removeItem(STORAGE_KEY); }
+
+/* ------------------------------------------------------------------
+ * 9. サンプルデータ（すべて架空。実名・実番号は入れない）
+ * ------------------------------------------------------------------ */
+function buildSampleDb(year, month) {
+  const db = createEmptyDb();
+  const first = `${year}-${pad2(month)}-01`;
+  const lastYear = `${year - 1}-${pad2(month)}-01`;
+  const nextYearEnd = `${year + 1}-${pad2(month)}-${pad2(daysInMonth(year + 1, month))}`;
+
+  const s1 = staff.add(db, createStaff({ id: 's_sample1', name: '看護 太郎', displayName: '看護(太)', role: 'NS', color: '#2563eb' }));
+  const s2 = staff.add(db, createStaff({ id: 's_sample2', name: '看護 花子', displayName: '看護(花)', role: 'NS', employment: 'parttime', color: '#16a34a',
+    availability: [{ dow: 1, start: '09:00', end: '15:00' }, { dow: 3, start: '09:00', end: '15:00' }, { dow: 5, start: '09:00', end: '15:00' }] }));
+  const s3 = staff.add(db, createStaff({ id: 's_sample3', name: '理学 一郎', displayName: '理学(一)', role: 'PT', color: '#d97706' }));
+
+  const p1 = patients.add(db, createPatient({ id: 'p_sample1', name: '利用者A', displayName: 'A様', insurance: 'kaigo', careLevel: 'yokaigo2',
+    contract: { start: lastYear, end: null },
+    instructions: [createInstruction({ id: 'ins_sample1', type: 'normal', from: first, to: addDays(first, 180) })],
+    preferences: { preferredTimeRanges: [{ dow: null, start: '09:00', end: '12:00' }], ngTimeRanges: [], preferredStaffIds: [s1.id], ngStaffIds: [], note: '' } }));
+  const p2 = patients.add(db, createPatient({ id: 'p_sample2', name: '利用者B', displayName: 'B様', insurance: 'iryo', careLevel: 'none',
+    specialFlags: { betsu7: true, betsu8: false },
+    contract: { start: lastYear, end: null },
+    instructions: [createInstruction({ id: 'ins_sample2', type: 'normal', from: first, to: nextYearEnd })],
+    statusPeriods: [{ status: 'hospitalized', from: addDays(first, 14), to: addDays(first, 20), note: '検査入院（架空）' }] }));
+  const p3 = patients.add(db, createPatient({ id: 'p_sample3', name: '利用者C', displayName: 'C様', insurance: 'kaigo', careLevel: 'yoshien2',
+    contract: { start: lastYear, end: null },
+    instructions: [createInstruction({ id: 'ins_sample3', type: 'normal', from: first, to: addDays(first, 90) })],
+    requirements: { needsTwoStaff: false, allowedRoles: ['PT', 'OT'] } }));
+
+  plans.add(db, createPlan({ id: 'pl_sample1', patientId: p1.id, serviceType: 'nursing', durationMin: 60, dow: 1, start: '10:00', staffIds: [s1.id], period: { from: first, to: null } }));
+  plans.add(db, createPlan({ id: 'pl_sample2', patientId: p1.id, serviceType: 'nursing', durationMin: 60, dow: 4, start: '10:00', staffIds: [s2.id], period: { from: first, to: null } }));
+  plans.add(db, createPlan({ id: 'pl_sample3', patientId: p2.id, serviceType: 'nursing', durationMin: 90, dow: 2, start: '14:00', staffIds: [s1.id],
+    recurrence: { kind: 'biweekly', anchorDate: first, weeksOfMonth: null }, period: { from: first, to: null } }));
+  plans.add(db, createPlan({ id: 'pl_sample4', patientId: p3.id, serviceType: 'rehab', durationMin: 40, dow: 3, start: '13:00', staffIds: [s3.id],
+    recurrence: { kind: 'weeksOfMonth', anchorDate: null, weeksOfMonth: [1, 3] }, period: { from: first, to: null } }));
+
+  const thirdWed = monthDates(year, month).filter(d => dowOf(d) === 3)[2];
+  if (thirdWed) holidays.add(db, createHoliday({ date: thirdWed, name: '事業所研修日（架空）', kind: 'office' }));
+
+  for (const pl of db.plans) {
+    const { visits: vs } = expandPlan(db, pl, year, month);
+    vs.forEach(v => visits.add(db, v));
+  }
+  return db;
+}
+
+/* ------------------------------------------------------------------
+ * 10. 公開 API
+ * ------------------------------------------------------------------ */
+const VS = {
+  SCHEMA_VERSION, STORAGE_KEY, HISTORY_MAX, MAX_STAFF_PER_VISIT, LONG_VISIT_MIN,
+  ENUMS, ROLE_SERVICE, STATUS_TRANSITIONS,
+  date: { isDateStr, daysInMonth, dateToStr, strToDate, todayStr, addDays, dowOf, monthDates, weekOfMonth, diffDays, inPeriod, periodsOverlap },
+  time: { isTimeStr, toMin, fromMin, addMin, rangesOverlap, timeBandOf },
+  genId, nowIso, clone,
+  create: { db: createEmptyDb, patient: createPatient, instruction: createInstruction, staff: createStaff, plan: createPlan, visit: createVisit, holiday: createHoliday },
+  validate: { patient: validatePatient, staff: validateStaff, plan: validatePlan, visit: validateVisit, holiday: validateHoliday, db: validateDb },
+  derive: { visitDurationMin, visitTimeBand, isLongVisit, isTwoStaffVisit, isActiveVisit, patientDisplayName, staffDisplayName,
+            patientStatusOn, hasValidInstruction, isHoliday, isBusinessDay, staffAvailable },
+  rules: { findStaffConflicts, findPatientConflicts, checkVisitRules, changeVisitStatus, expandPlan },
+  repo: { patients, staff, plans, visits, holidays, pushHistory },
+  store: { load, save, clear, parseDb, exportJson, serialize, migrate },
+  sample: { build: buildSampleDb },
+  ValidationError
+};
+root.VS = VS;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<!-- =====================================================================
+     セルフテスト。ブラウザでも Node でも同じコードで動く。
+     ===================================================================== -->
+<script id="vs-tests">
+(function (root) {
+'use strict';
+const VS = root.VS;
+const tests = [];
+const t = (name, fn) => tests.push({ name, fn });
+const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${msg || ''} 期待:${JSON.stringify(b)} 実際:${JSON.stringify(a)}`); };
+const ok = (c, msg) => { if (!c) throw new Error(msg || '条件が偽でした'); };
+const throws = (fn, msg) => { let threw = false; try { fn(); } catch (e) { threw = true; } if (!threw) throw new Error(msg || '例外が出ませんでした'); };
+function memStorage() { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), keys: () => [...m.keys()] }; }
+
+/* --- 日付・時刻 --- */
+t('日付: うるう年と月末', () => {
+  ok(VS.date.isDateStr('2024-02-29')); ok(!VS.date.isDateStr('2023-02-29')); ok(!VS.date.isDateStr('2026-04-31'));
+  ok(!VS.date.isDateStr('2026-13-01')); ok(!VS.date.isDateStr('2026/01/01')); ok(!VS.date.isDateStr('2026-1-1'));
+  eq(VS.date.daysInMonth(2026, 2), 28); eq(VS.date.daysInMonth(2028, 2), 29); eq(VS.date.daysInMonth(2026, 12), 31);
+});
+t('日付: 加算・曜日・年跨ぎ', () => {
+  eq(VS.date.addDays('2026-12-31', 1), '2027-01-01'); eq(VS.date.addDays('2026-03-01', -1), '2026-02-28');
+  eq(VS.date.dowOf('2026-10-05'), 1);            // 月曜
+  eq(VS.date.monthDates(2026, 2).length, 28);
+  eq(VS.date.weekOfMonth('2026-10-01'), 1); eq(VS.date.weekOfMonth('2026-10-07'), 1); eq(VS.date.weekOfMonth('2026-10-08'), 2); eq(VS.date.weekOfMonth('2026-10-29'), 5);
+  eq(VS.date.diffDays('2026-10-01', '2026-10-15'), 14);
+});
+t('日付: 期間判定（開区間）', () => {
+  ok(VS.date.inPeriod('2026-10-05', null, null)); ok(VS.date.inPeriod('2026-10-05', '2026-10-05', '2026-10-05'));
+  ok(!VS.date.inPeriod('2026-10-04', '2026-10-05', null)); ok(!VS.date.inPeriod('2026-10-06', null, '2026-10-05'));
+  ok(VS.date.periodsOverlap('2026-10-01', '2026-10-10', '2026-10-10', null)); ok(!VS.date.periodsOverlap('2026-10-01', '2026-10-09', '2026-10-10', null));
+});
+t('時刻: 形式・分換算・重なり・時間帯', () => {
+  ok(VS.time.isTimeStr('00:00')); ok(VS.time.isTimeStr('24:00')); ok(!VS.time.isTimeStr('24:01')); ok(!VS.time.isTimeStr('9:00')); ok(!VS.time.isTimeStr('10:60'));
+  eq(VS.time.toMin('10:30'), 630); eq(VS.time.fromMin(630), '10:30'); eq(VS.time.addMin('23:30', 30), '24:00');
+  ok(VS.time.rangesOverlap('10:00', '11:00', '10:30', '11:30')); ok(!VS.time.rangesOverlap('10:00', '11:00', '11:00', '12:00'));
+  eq(VS.time.timeBandOf('07:59'), 'nightEarly'); eq(VS.time.timeBandOf('08:00'), 'day'); eq(VS.time.timeBandOf('18:00'), 'nightEarly'); eq(VS.time.timeBandOf('22:00'), 'late'); eq(VS.time.timeBandOf('05:59'), 'late');
+});
+
+/* --- 検証 --- */
+t('検証: 既定値で作った利用者・スタッフ・計画は名前等を入れれば合格', () => {
+  eq(VS.validate.patient(VS.create.patient({ name: '利用者A' })), []);
+  eq(VS.validate.staff(VS.create.staff({ name: '看護 太郎' })), []);
+  eq(VS.validate.plan(VS.create.plan({ patientId: 'p_x' })), []);
+  eq(VS.validate.visit(VS.create.visit({ date: '2026-10-05', start: '10:00', end: '11:00', patientId: 'p_x' })), []);
+});
+t('検証: 利用者の矛盾を検出', () => {
+  const paths = e => e.map(x => x.path);
+  ok(paths(VS.validate.patient(VS.create.patient({ name: '' }))).includes('name'));
+  ok(paths(VS.validate.patient(VS.create.patient({ name: 'A', insurance: 'kaigo', careLevel: 'none' }))).includes('careLevel'));
+  ok(paths(VS.validate.patient(VS.create.patient({ name: 'A', contract: { start: '2026-10-10', end: '2026-10-01' } }))).includes('contract'));
+  const p = VS.create.patient({ name: 'A', statusPeriods: [
+    { status: 'hospitalized', from: '2026-10-01', to: '2026-10-10', note: '' }, { status: 'suspended', from: '2026-10-10', to: null, note: '' }] });
+  ok(paths(VS.validate.patient(p)).includes('statusPeriods'), '状態期間の重なり');
+  ok(paths(VS.validate.patient(VS.create.patient({ name: 'A', statusPeriods: [{ status: 'active', from: '2026-10-01', to: null, note: '' }] }))).includes('statusPeriods[0].status'));
+  ok(paths(VS.validate.patient(VS.create.patient({ name: 'A', instructions: [VS.create.instruction({ from: '2026-10-01', to: null })] }))).includes('instructions[0].to'));
+  const pp = VS.create.patient({ name: 'A' }); pp.preferences.preferredStaffIds = ['s1']; pp.preferences.ngStaffIds = ['s1'];
+  ok(paths(VS.validate.patient(pp)).includes('preferences'));
+});
+t('検証: 訪問の矛盾を検出', () => {
+  const paths = e => e.map(x => x.path);
+  const base = { date: '2026-10-05', start: '10:00', end: '11:00', patientId: 'p_x' };
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, end: '10:00' }))).includes('end'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, start: '24:00', end: '24:00' }))).includes('start'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, staffIds: ['a', 'b', 'c'] }))).includes('staffIds'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, staffIds: ['a', 'a'] }))).includes('staffIds'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, status: 'cancelled' }))).includes('cancelReason'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, cancelReason: 'patient' }))).includes('cancelReason'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, status: 'done' }))).includes('actual'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, origin: 'plan' }))).includes('planId'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, origin: 'transfer' }))).includes('transferredFromId'));
+  ok(paths(VS.validate.visit(VS.create.visit({ ...base, date: '2026-02-30' }))).includes('date'));
+});
+t('検証: 計画の繰り返し条件', () => {
+  const paths = e => e.map(x => x.path);
+  ok(paths(VS.validate.plan(VS.create.plan({ patientId: 'p', recurrence: { kind: 'biweekly', anchorDate: null, weeksOfMonth: null } }))).includes('recurrence.anchorDate'));
+  ok(paths(VS.validate.plan(VS.create.plan({ patientId: 'p', recurrence: { kind: 'weeksOfMonth', anchorDate: null, weeksOfMonth: [0] } }))).includes('recurrence.weeksOfMonth'));
+  ok(paths(VS.validate.plan(VS.create.plan({ patientId: 'p', start: '23:30', durationMin: 60 }))).includes('durationMin'));
+  eq(VS.validate.plan(VS.create.plan({ patientId: 'p', recurrence: { kind: 'weeksOfMonth', anchorDate: null, weeksOfMonth: [1, 3] } })), []);
+});
+t('検証: DB の参照整合性とID重複', () => {
+  const db = VS.create.db();
+  const p = VS.create.patient({ id: 'p1', name: 'A' });
+  db.patients.push(p, VS.create.patient({ id: 'p1', name: 'B' }));
+  db.visits.push(VS.create.visit({ date: '2026-10-05', start: '10:00', end: '11:00', patientId: 'p_missing', staffIds: ['s_missing'], planId: 'pl_missing' }));
+  const errs = VS.validate.db(db);
+  const msgs = errs.map(e => e.msg).join('\n');
+  ok(msgs.includes('IDが重複'), 'ID重複'); ok(msgs.includes('存在しない利用者'), '利用者参照'); ok(msgs.includes('存在しないスタッフ'), 'スタッフ参照'); ok(msgs.includes('存在しない計画'), '計画参照');
+});
+t('検証: 振替の双方向参照が崩れていると検出', () => {
+  const db = VS.create.db();
+  db.patients.push(VS.create.patient({ id: 'p1', name: 'A' }));
+  db.visits.push(VS.create.visit({ id: 'v1', date: '2026-10-05', start: '10:00', end: '11:00', patientId: 'p1', status: 'transferred', transferredToId: 'v2' }));
+  db.visits.push(VS.create.visit({ id: 'v2', date: '2026-10-06', start: '10:00', end: '11:00', patientId: 'p1', origin: 'transfer', transferredFromId: 'v_other' }));
+  ok(VS.validate.db(db).some(e => e.msg.includes('一致しません')));
+});
+
+/* --- 派生・ルール --- */
+t('派生: 利用者の日別状態', () => {
+  const p = VS.create.patient({ name: 'A', contract: { start: '2026-01-01', end: '2026-12-31' },
+    statusPeriods: [{ status: 'hospitalized', from: '2026-10-10', to: '2026-10-12', note: '' }] });
+  eq(VS.derive.patientStatusOn(p, '2025-12-31'), 'ended'); eq(VS.derive.patientStatusOn(p, '2026-10-09'), 'active');
+  eq(VS.derive.patientStatusOn(p, '2026-10-10'), 'hospitalized'); eq(VS.derive.patientStatusOn(p, '2026-10-13'), 'active'); eq(VS.derive.patientStatusOn(p, '2027-01-01'), 'ended');
+});
+t('派生: 訪問の長さ・複数名・時間帯', () => {
+  const v = VS.create.visit({ date: '2026-10-05', start: '18:30', end: '20:10', patientId: 'p', staffIds: ['a', 'b'] });
+  eq(VS.derive.visitDurationMin(v), 100); ok(VS.derive.isLongVisit(v)); ok(VS.derive.isTwoStaffVisit(v)); eq(VS.derive.visitTimeBand(v), 'nightEarly');
+  v.flags.training = true; ok(!VS.derive.isTwoStaffVisit(v), '研修同行は複数名扱いにしない');
+  eq(VS.derive.isLongVisit(VS.create.visit({ start: '10:00', end: '11:30' })), false, '90分ちょうどは長時間ではない');
+});
+t('ルール: スタッフ・利用者の時間重複', () => {
+  const db = VS.sample.build(2026, 10);
+  const v = db.visits.find(x => x.planId === 'pl_sample1');
+  const dup = VS.create.visit({ date: v.date, start: VS.time.addMin(v.start, 30), end: VS.time.addMin(v.end, 30), patientId: 'p_sample2', staffIds: v.staffIds.slice() });
+  eq(VS.rules.findStaffConflicts(db, dup).map(x => x.id), [v.id]);
+  const dup2 = VS.create.visit({ date: v.date, start: v.start, end: v.end, patientId: v.patientId, staffIds: [] });
+  eq(VS.rules.findPatientConflicts(db, dup2).map(x => x.id), [v.id]);
+  const cancelled = VS.repo.visits.setStatus(db, v.id, 'cancelled', { cancelReason: 'patient' });
+  eq(VS.rules.findStaffConflicts(db, dup), [], 'キャンセル済みは重複に数えない');
+  ok(cancelled.status === 'cancelled');
+});
+t('ルール: ハード制約チェック', () => {
+  const db = VS.sample.build(2026, 10);
+  const codes = v => VS.rules.checkVisitRules(db, v).map(x => x.code);
+  // 入院期間中（利用者B は 15日〜21日 入院）
+  ok(codes(VS.create.visit({ date: '2026-10-16', start: '10:00', end: '11:00', patientId: 'p_sample2', staffIds: ['s_sample1'] })).includes('patientStatus'));
+  // 職種不一致: PT が看護を担当
+  ok(codes(VS.create.visit({ date: '2026-10-06', start: '10:00', end: '11:00', patientId: 'p_sample1', staffIds: ['s_sample3'] })).includes('roleMismatch'));
+  // 非常勤の勤務枠外（看護 花子 は 月水金 9-15）
+  ok(codes(VS.create.visit({ date: '2026-10-06', start: '10:00', end: '11:00', patientId: 'p_sample1', staffIds: ['s_sample2'] })).includes('staffUnavailable'));
+  // 指示書期限外（利用者C は 1日 + 90日 まで）
+  ok(codes(VS.create.visit({ date: '2027-02-03', start: '13:00', end: '13:40', patientId: 'p_sample3', serviceType: 'rehab', staffIds: ['s_sample3'] })).includes('noInstruction'));
+  // 問題なし
+  eq(codes(VS.create.visit({ date: '2026-10-06', start: '10:00', end: '11:00', patientId: 'p_sample1', staffIds: ['s_sample1'] })), []);
+});
+t('ルール: ステータス遷移', () => {
+  const v = VS.create.visit({ date: '2026-10-05', start: '10:00', end: '11:00', patientId: 'p' });
+  const c = VS.rules.changeVisitStatus(v, 'confirmed'); eq(c.status, 'confirmed');
+  const d = VS.rules.changeVisitStatus(c, 'done'); eq(d.actual, { start: '10:00', end: '11:00' });
+  throws(() => VS.rules.changeVisitStatus(d, 'cancelled'), '実施→キャンセルは不可');
+  const x = VS.rules.changeVisitStatus(v, 'cancelled', { cancelReason: 'hospital' }); eq(x.cancelReason, 'hospital');
+  const back = VS.rules.changeVisitStatus(x, 'planned'); eq(back.cancelReason, null);
+  throws(() => VS.rules.changeVisitStatus({ ...v, status: 'transferred' }, 'planned'), '振替元は戻せない');
+});
+t('ルール: 計画の月展開（毎週・隔週・第N週・休日・入院・既存スキップ）', () => {
+  const db = VS.sample.build(2026, 10);
+  // 2026-10 の月曜: 5,12,19,26 → pl_sample1 は4件
+  eq(db.visits.filter(v => v.planId === 'pl_sample1').map(v => v.date), ['2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26']);
+  // 火曜 隔週（基準 10/1 の週）: 10/6 は基準週（10/1〜10/7）→ 対象, 10/13 ×, 10/20 ○ だが入院(15〜21) → スキップ, 10/27 ×
+  eq(db.visits.filter(v => v.planId === 'pl_sample3').map(v => v.date), ['2026-10-06']);
+  // 水曜 第1・3週: 10/7(第1), 10/21(第3) → 21日は事業所休業日なのでスキップ
+  eq(db.visits.filter(v => v.planId === 'pl_sample4').map(v => v.date), ['2026-10-07']);
+  const again = VS.rules.expandPlan(db, db.plans[0], 2026, 10);
+  eq(again.visits.length, 0, '再展開しても重複しない'); eq(again.skipped.filter(s => s.reason === 'exists').length, 4);
+  const nov = VS.rules.expandPlan(db, db.plans.find(p => p.id === 'pl_sample3'), 2026, 11);
+  eq(nov.visits.map(v => v.date), ['2026-11-03', '2026-11-17'], '隔週が月をまたいで続く');
+  // 基準日 10/1(木) で火曜の計画 → 起点は 10/6。9月は 9/29(火) が基準日より前なので対象外
+  const sep = VS.rules.expandPlan(db, db.plans.find(p => p.id === 'pl_sample3'), 2026, 9);
+  eq(sep.visits.length, 0, '計画期間前は展開しない');
+  const pl = VS.clone(db.plans.find(p => p.id === 'pl_sample3')); pl.id = 'pl_tmp'; pl.period = { from: '2026-09-01', to: null };
+  eq(VS.rules.expandPlan(db, pl, 2026, 9).visits.map(v => v.date), ['2026-09-22', '2026-09-08'].sort(), '基準日より前は起点から逆算して隔週');
+});
+
+/* --- リポジトリ・保存 --- */
+t('リポジトリ: 追加・更新・無効化・履歴', () => {
+  const db = VS.create.db();
+  const p = VS.repo.patients.add(db, VS.create.patient({ name: '利用者A' }));
+  throws(() => VS.repo.patients.add(db, VS.create.patient({ id: p.id, name: '利用者B' })), 'ID重複は拒否');
+  throws(() => VS.repo.patients.update(db, p.id, { name: '' }), '不正な更新は拒否');
+  VS.repo.patients.update(db, p.id, { area: '○○町' });
+  VS.repo.patients.archive(db, p.id);
+  eq(VS.repo.patients.list(db).length, 0); eq(VS.repo.patients.list(db, { includeArchived: true }).length, 1);
+  eq(db.history.map(h => h.action), ['add', 'update', 'update']);
+});
+t('リポジトリ: 振替と削除の保護', () => {
+  const db = VS.sample.build(2026, 10);
+  const src = db.visits.find(v => v.planId === 'pl_sample1');
+  const dst = VS.repo.visits.transfer(db, src.id, { date: '2026-10-07', start: '11:00' });
+  eq(dst.end, '12:00'); eq(dst.transferredFromId, src.id);
+  eq(VS.repo.visits.get(db, src.id).status, 'transferred'); eq(VS.repo.visits.get(db, src.id).transferredToId, dst.id);
+  eq(VS.validate.db(db), []);
+  throws(() => VS.repo.visits.remove(db, src.id), '振替元は削除不可'); throws(() => VS.repo.visits.remove(db, dst.id), '振替先も削除不可');
+});
+t('リポジトリ: 履歴は上限で古いものから捨てる', () => {
+  const db = VS.create.db();
+  for (let i = 0; i < VS.HISTORY_MAX + 20; i++) VS.repo.pushHistory(db, { action: 'test', entity: 'x', entityId: String(i) });
+  eq(db.history.length, VS.HISTORY_MAX); eq(db.history[0].entityId, '20');
+});
+t('保存: 往復で同一・空の起動・不正データの退避', () => {
+  const st = memStorage();
+  const fresh = VS.store.load(st); ok(fresh.fresh); eq(fresh.errors, []);
+  const db = VS.sample.build(2026, 10);
+  const r = VS.store.save(db, st); ok(r.ok, JSON.stringify(r.errors));
+  const back = VS.store.load(st); eq(back.errors, []); eq(back.db.visits.length, db.visits.length); eq(back.db.patients[0].id, 'p_sample1');
+  st.setItem(VS.STORAGE_KEY, '{broken');
+  const broken = VS.store.load(st); ok(broken.fresh); ok(broken.backupKey && st.getItem(broken.backupKey) === '{broken', '壊れたデータは退避される');
+});
+t('保存: 検証エラーがあると保存しない', () => {
+  const st = memStorage();
+  const db = VS.create.db(); db.visits.push(VS.create.visit({ date: 'bad', start: '10:00', end: '11:00', patientId: 'p' }));
+  const r = VS.store.save(db, st); ok(!r.ok); eq(st.getItem(VS.STORAGE_KEY), null);
+});
+t('移行: 新しい版は拒否、欠けた配列は補う', () => {
+  throws(() => VS.store.migrate({ schemaVersion: VS.SCHEMA_VERSION + 1 }));
+  const db = VS.store.migrate({ schemaVersion: 1, patients: [] });
+  ok(Array.isArray(db.visits)); eq(db.settings.slotMin, 15);
+  eq(VS.validate.db(db), []);
+});
+t('サンプル: 生成データは検証に合格し実名を含まない', () => {
+  const db = VS.sample.build(2026, 10);
+  eq(VS.validate.db(db), []);
+  ok(db.patients.every(p => /^利用者[A-Z]$/.test(p.name)));
+});
+t('ID: 連続生成で重複しない', () => {
+  const s = new Set(); for (let i = 0; i < 2000; i++) s.add(VS.genId('v')); eq(s.size, 2000);
+});
+
+function run() {
+  return tests.map(({ name, fn }) => { try { fn(); return { name, ok: true, detail: '' }; } catch (e) { return { name, ok: false, detail: e.message }; } });
+}
+root.VS_TESTS = { run, count: tests.length };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+
+<!-- 画面側（確認用）。データ層には触れず、VS の公開APIだけを使う -->
+<script>
+(function () {
+  const $ = s => document.querySelector(s);
+  $('#storage-key').textContent = VS.STORAGE_KEY;
+
+  // 1. 概要
+  const schemaRows = [
+    ['patients', '利用者マスタ', '保険種別・要介護度・指示書期間・契約期間・入院/休止の期間・希望条件・NG担当'],
+    ['staff', 'スタッフマスタ', '職種・雇用形態・標準の勤務可能枠・在籍期間・表示色'],
+    ['plans', '訪問計画（週パターン）', '利用者・曜日・開始時刻・所要時間・既定担当・繰り返し（毎週/隔週/第N週）・有効期間'],
+    ['visits', '訪問（個別の予定・実績）', '日付・開始/終了・利用者・担当（最大2名）・ステータス・振替の双方向参照・実績時刻'],
+    ['holidays', '休日', '祝日・事業所休業日。展開時に見送り対象'],
+    ['settings', '設定', '営業曜日・時間軸・入力刻み・既定所要時間'],
+    ['history', '変更履歴', '追加・更新・ステータス変更・振替・削除。上限 ' + VS.HISTORY_MAX + ' 件']
+  ];
+  $('#schema').innerHTML = '<table><thead><tr><th>コレクション</th><th>役割</th><th>主な項目</th></tr></thead><tbody>'
+    + schemaRows.map(r => `<tr><td><code>${r[0]}</code></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('') + '</tbody></table>';
+
+  // 2. セルフテスト
+  const results = VS_TESTS.run();
+  const pass = results.filter(r => r.ok).length;
+  $('#test-summary').innerHTML = `<p class="${pass === results.length ? 'ok' : 'ng'}">${pass} / ${results.length} 合格</p>`;
+  $('#test-table tbody').innerHTML = results.map(r =>
+    `<tr><td class="${r.ok ? 'ok' : 'ng'}">${r.ok ? '合格' : '不合格'}</td><td>${r.name}</td><td>${r.detail}</td></tr>`).join('');
+
+  // 3. 保存データ操作
+  function refresh() {
+    const { db, errors, backupKey } = VS.store.load(localStorage);
+    $('#counts').innerHTML = ['patients', 'staff', 'plans', 'visits', 'holidays', 'history']
+      .map(k => `<span>${k}: <b>${db[k].length}</b></span>`).join('') + `<span class="muted">更新: ${db.meta.updatedAt}</span>`;
+    $('#db-errors').innerHTML = errors.length
+      ? `<p class="ng">読み込み時の問題 ${errors.length} 件${backupKey ? '（元データは ' + backupKey + ' に退避）' : ''}</p><ul>${errors.slice(0, 20).map(e => `<li><code>${e.path}</code> ${e.msg}</li>`).join('')}</ul>`
+      : '<p class="ok">保存データは検証に合格しています</p>';
+    const preview = VS.store.exportJson(db);
+    $('#db-preview').textContent = preview.length > 20000 ? preview.slice(0, 20000) + '\n… (省略)' : preview;
+  }
+  $('#btn-sample').onclick = () => {
+    if (localStorage.getItem(VS.STORAGE_KEY) !== null && !confirm('保存済みデータをサンプルで置き換えます。よろしいですか？')) return;
+    const now = new Date();
+    const r = VS.store.save(VS.sample.build(now.getFullYear(), now.getMonth() + 1), localStorage);
+    if (!r.ok) alert('保存できませんでした:\n' + r.errors.map(e => e.path + ' ' + e.msg).join('\n'));
+    refresh();
+  };
+  $('#btn-export').onclick = () => {
+    const { db } = VS.store.load(localStorage);
+    const blob = new Blob([VS.store.exportJson(db)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `訪問スケジュール_${VS.date.todayStr()}.json`; a.click(); URL.revokeObjectURL(a.href);
+  };
+  $('#file-import').onchange = ev => {
+    const f = ev.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { db, errors } = VS.store.parseDb(String(reader.result));
+        if (errors.length) { alert('読み込んだデータに問題があります（保存しません）:\n' + errors.slice(0, 10).map(e => e.path + ' ' + e.msg).join('\n')); return; }
+        if (!confirm(`利用者 ${db.patients.length} 名・訪問 ${db.visits.length} 件を読み込み、現在の保存データを置き換えます。よろしいですか？`)) return;
+        const r = VS.store.save(db, localStorage);
+        if (!r.ok) alert('保存できませんでした');
+      } catch (e) { alert(e.message); }
+      ev.target.value = ''; refresh();
+    };
+    reader.readAsText(f);
+  };
+  $('#btn-clear').onclick = () => {
+    if (!confirm('保存データをすべて削除します。先にJSONを書き出していますか？')) return;
+    VS.store.clear(localStorage); refresh();
+  };
+  refresh();
+})();
+</script>
+</body>
+</html>
