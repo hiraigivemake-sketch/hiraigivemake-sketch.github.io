@@ -174,8 +174,12 @@
   .inline-form label { display:flex; flex-direction:column; font-size:12px; color:var(--sub); gap:3px; }
   .inline-form label.chk { flex-direction:row; align-items:center; color:var(--ink); font-size:13px; width:100%; }
   #holiday-msgs { font-size:12px; width:100%; }
+  .station { color:var(--sub); font-size:12px; margin-right:12px; max-width:240px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .settings-form { padding:16px; max-width:820px; }
+  .settings-form .form-sec h3 { font-size:13px; margin:0 0 8px; }
+  .settings-form .grid2, .settings-form .grid3 { margin-top:6px; }
 
-  @media (max-width:640px) { .grid2, .grid3 { grid-template-columns:1fr; } .topbar h1 { display:none; } .actions { margin-left:0; } .summary { margin-left:0; } }
+  @media (max-width:640px) { .grid2, .grid3 { grid-template-columns:1fr; } .topbar h1, .station { display:none; } .actions { margin-left:0; } .summary { margin-left:0; } }
   @media print {
     .tabs, .actions, .row2 select, .row2 .chk, .nav button, #date-input, #week-mode, button.add, .toast, .modal-bg { display:none !important; }
     body { background:#fff; } .topbar { position:static; border:none; } main { padding:0; }
@@ -187,6 +191,7 @@
 <header class="topbar">
   <div class="row1">
     <h1>訪問スケジュール</h1>
+    <span class="station" id="station-name"></span>
     <nav class="tabs" aria-label="表示切替">
       <button type="button" data-view="day">日</button>
       <button type="button" data-view="week">週</button>
@@ -227,6 +232,7 @@
       <button type="button" data-master="staff">スタッフ</button>
       <button type="button" data-master="plans">訪問計画</button>
       <button type="button" data-master="holidays">休日</button>
+      <button type="button" data-master="settings">設定</button>
     </div>
     <input type="search" id="master-search" placeholder="名前で検索" aria-label="検索">
     <label class="chk" id="master-archived-label"><input type="checkbox" id="master-archived"> 無効も表示</label>
@@ -408,7 +414,7 @@ function createEmptyDb() {
   const now = nowIso();
   return {
     schemaVersion: SCHEMA_VERSION,
-    meta: { createdAt: now, updatedAt: now, stationName: 'サンプル訪問看護ステーション' },
+    meta: { createdAt: now, updatedAt: now, stationName: '' },
     settings: {
       businessDows: [1, 2, 3, 4, 5],          // 営業曜日（0=日）
       dayStart: '08:00', dayEnd: '20:00',     // 画面の時間軸
@@ -689,6 +695,30 @@ function validateHoliday(h) {
   return e;
 }
 
+const SLOT_OPTIONS = [5, 10, 15, 30, 60];
+function validateSettings(s) {
+  const e = [];
+  if (!isObj(s)) return [{ path: '', msg: '設定がありません' }];
+  if (!Array.isArray(s.businessDows) || s.businessDows.some(d => !isInt(d) || d < 0 || d > 6)) e.push({ path: 'businessDows', msg: '営業曜日が不正です' });
+  else if (!s.businessDows.length) e.push({ path: 'businessDows', msg: '営業曜日を1つ以上選んでください' });
+  else if (new Set(s.businessDows).size !== s.businessDows.length) e.push({ path: 'businessDows', msg: '営業曜日が重複しています' });
+  if (!isTimeStr(s.dayStart) || s.dayStart === '24:00') e.push({ path: 'dayStart', msg: '時間軸の開始が不正です' });
+  if (!isTimeStr(s.dayEnd)) e.push({ path: 'dayEnd', msg: '時間軸の終了が不正です' });
+  if (isTimeStr(s.dayStart) && isTimeStr(s.dayEnd) && toMin(s.dayStart) >= toMin(s.dayEnd)) e.push({ path: 'dayEnd', msg: '時間軸の終了は開始より後にしてください' });
+  if (!SLOT_OPTIONS.includes(s.slotMin)) e.push({ path: 'slotMin', msg: '刻みは 5/10/15/30/60 分です' });
+  if (!isInt(s.defaultDurationMin) || s.defaultDurationMin <= 0 || s.defaultDurationMin > 600) e.push({ path: 'defaultDurationMin', msg: '既定の所要時間は1〜600分です' });
+  if (!isInt(s.weekStartDow) || s.weekStartDow < 0 || s.weekStartDow > 6) e.push({ path: 'weekStartDow', msg: '週の開始曜日は0〜6です' });
+  if (!isBool(s.skipNationalHolidays)) e.push({ path: 'skipNationalHolidays', msg: '祝日の扱いは真偽値です' });
+  return e;
+}
+function validateMeta(m) {
+  const e = [];
+  if (!isObj(m)) return [{ path: '', msg: 'メタ情報がありません' }];
+  if (!isStr(m.stationName)) e.push({ path: 'stationName', msg: '事業所名は文字列です' });
+  else if (m.stationName.length > 100) e.push({ path: 'stationName', msg: '事業所名は100文字以内です' });
+  return e;
+}
+
 /* DB 全体: 各エンティティ + ID一意性 + 参照整合性 */
 function validateDb(db) {
   const e = [];
@@ -697,16 +727,8 @@ function validateDb(db) {
   for (const k of ['holidays', 'patients', 'staff', 'plans', 'visits', 'history']) {
     if (!Array.isArray(db[k])) e.push({ path: k, msg: '配列ではありません' });
   }
-  if (!isObj(db.settings)) e.push({ path: 'settings', msg: '設定がありません' });
-  else {
-    const s = db.settings;
-    if (!Array.isArray(s.businessDows) || s.businessDows.some(d => !isInt(d) || d < 0 || d > 6)) e.push({ path: 'settings.businessDows', msg: '営業曜日が不正です' });
-    if (!isTimeStr(s.dayStart) || !isTimeStr(s.dayEnd) || toMin(s.dayStart) >= toMin(s.dayEnd)) e.push({ path: 'settings.dayStart', msg: '時間軸の範囲が不正です' });
-    if (![5, 10, 15, 30, 60].includes(s.slotMin)) e.push({ path: 'settings.slotMin', msg: '刻みは 5/10/15/30/60 分です' });
-    if (!isInt(s.defaultDurationMin) || s.defaultDurationMin <= 0) e.push({ path: 'settings.defaultDurationMin', msg: '既定所要時間が不正です' });
-    if (!isInt(s.weekStartDow) || s.weekStartDow < 0 || s.weekStartDow > 6) e.push({ path: 'settings.weekStartDow', msg: '週の開始曜日は0〜6です' });
-    if (!isBool(s.skipNationalHolidays)) e.push({ path: 'settings.skipNationalHolidays', msg: '祝日の扱いは真偽値です' });
-  }
+  validateSettings(db.settings).forEach(err => e.push({ path: err.path ? `settings.${err.path}` : 'settings', msg: err.msg }));
+  validateMeta(db.meta).forEach(err => e.push({ path: err.path ? `meta.${err.path}` : 'meta', msg: err.msg }));
   if (e.length) return e;   // 骨格が壊れていれば以降は見ない
 
   const collect = (arr, fn, label) => {
@@ -1016,6 +1038,31 @@ const holidays = {
   }
 };
 
+/* 設定とメタ情報。部分更新を検証してから反映し、履歴に残す */
+const settingsRepo = {
+  update(db, patch) {
+    const before = db.settings;
+    const after = Object.assign({}, before, patch);
+    const errs = validateSettings(after);
+    if (errs.length) throw new ValidationError('設定の内容に誤りがあります', errs);
+    db.settings = after;
+    pushHistory(db, { action: 'update', entity: 'settings', entityId: 'settings', before: clone(before), after: clone(after) });
+    return after;
+  }
+};
+const metaRepo = {
+  /* 変更できるのは事業所名だけ。作成日時・更新日時は保存処理が管理する */
+  update(db, patch) {
+    const before = db.meta;
+    const after = Object.assign({}, before, { stationName: patch.stationName === undefined ? before.stationName : patch.stationName });
+    const errs = validateMeta(after);
+    if (errs.length) throw new ValidationError('事業所情報の内容に誤りがあります', errs);
+    db.meta = after;
+    pushHistory(db, { action: 'update', entity: 'meta', entityId: 'meta', before: { stationName: before.stationName }, after: { stationName: after.stationName } });
+    return after;
+  }
+};
+
 /* ------------------------------------------------------------------
  * 8. 保存・読込・移行
  * ------------------------------------------------------------------ */
@@ -1085,6 +1132,7 @@ function clear(storage) { storage.removeItem(STORAGE_KEY); }
  * ------------------------------------------------------------------ */
 function buildSampleDb(year, month) {
   const db = createEmptyDb();
+  db.meta.stationName = 'サンプル訪問看護ステーション';
   const first = `${year}-${pad2(month)}-01`;
   const lastYear = `${year - 1}-${pad2(month)}-01`;
   const nextYearEnd = `${year + 1}-${pad2(month)}-${pad2(daysInMonth(year + 1, month))}`;
@@ -1127,16 +1175,16 @@ function buildSampleDb(year, month) {
  * ------------------------------------------------------------------ */
 const VS = {
   SCHEMA_VERSION, STORAGE_KEY, HISTORY_MAX, MAX_STAFF_PER_VISIT, LONG_VISIT_MIN,
-  ENUMS, ROLE_SERVICE, STATUS_TRANSITIONS, DOW_JA,
+  ENUMS, ROLE_SERVICE, STATUS_TRANSITIONS, DOW_JA, SLOT_OPTIONS,
   date: { isDateStr, daysInMonth, dateToStr, strToDate, todayStr, addDays, dowOf, monthDates, weekOfMonth, diffDays, inPeriod, periodsOverlap },
   time: { isTimeStr, toMin, fromMin, addMin, rangesOverlap, timeBandOf },
   genId, nowIso, clone,
   create: { db: createEmptyDb, patient: createPatient, instruction: createInstruction, staff: createStaff, plan: createPlan, visit: createVisit, holiday: createHoliday },
-  validate: { patient: validatePatient, staff: validateStaff, plan: validatePlan, visit: validateVisit, holiday: validateHoliday, db: validateDb },
+  validate: { patient: validatePatient, staff: validateStaff, plan: validatePlan, visit: validateVisit, holiday: validateHoliday, settings: validateSettings, meta: validateMeta, db: validateDb },
   derive: { visitDurationMin, visitTimeBand, isLongVisit, isTwoStaffVisit, isActiveVisit, patientDisplayName, staffDisplayName,
             patientStatusOn, hasValidInstruction, isHoliday, isClosedDay, isBusinessDay, staffAvailable },
   rules: { findStaffConflicts, findPatientConflicts, checkVisitRules, checkPlanRules, changeVisitStatus, expandPlan, expandMonth },
-  repo: { patients, staff, plans, visits, holidays, pushHistory },
+  repo: { patients, staff, plans, visits, holidays, settings: settingsRepo, meta: metaRepo, pushHistory },
   store: { load, save, clear, parseDb, exportJson, serialize, migrate },
   sample: { build: buildSampleDb },
   ValidationError
@@ -1568,6 +1616,32 @@ t('展開: 祝日は設定により見送り、事業所休業日は常に見送
   eq(VS.store.migrate({ schemaVersion: 1 }).settings.skipNationalHolidays, true, '旧データには既定値が入る');
 });
 
+/* --- 設定 --- */
+t('設定: 検証と履歴付き更新', () => {
+  const db = VS.create.db();
+  eq(VS.validate.settings(db.settings), []);
+  const bad = Object.assign({}, db.settings, { businessDows: [1, 1], dayStart: '20:00', dayEnd: '08:00', slotMin: 7, defaultDurationMin: 0, weekStartDow: 7 });
+  const paths = VS.validate.settings(bad).map(e => e.path);
+  ['businessDows', 'dayEnd', 'slotMin', 'defaultDurationMin', 'weekStartDow'].forEach(p => ok(paths.includes(p), p + ' を検出'));
+  ok(VS.validate.settings(Object.assign({}, db.settings, { businessDows: [] })).some(e => e.path === 'businessDows'), '営業曜日なしは不可');
+  ok(VS.validate.settings(Object.assign({}, db.settings, { dayEnd: '24:00' })).length === 0, '終了 24:00 は可');
+  VS.repo.settings.update(db, { weekStartDow: 0, slotMin: 30, businessDows: [1, 2, 3, 4, 5, 6] });
+  eq([db.settings.weekStartDow, db.settings.slotMin, db.settings.businessDows.length, db.settings.dayStart], [0, 30, 6, '08:00']);
+  throws(() => VS.repo.settings.update(db, { dayEnd: '07:00' }), '不正な更新は例外');
+  eq(db.settings.dayEnd, '20:00', '失敗時は変更されない');
+  VS.repo.meta.update(db, { stationName: 'テスト事業所' });
+  eq(db.meta.stationName, 'テスト事業所');
+  throws(() => VS.repo.meta.update(db, { stationName: 'あ'.repeat(101) }), '101文字は不可');
+  throws(() => VS.repo.meta.update(db, { stationName: 12 }), '文字列以外は不可');
+  eq(db.meta.stationName, 'テスト事業所', '失敗時は変更されない');
+  eq(db.history.filter(h => h.entity === 'settings' || h.entity === 'meta').length, 2);
+  eq(VS.validate.db(db), []);
+  eq(VS.create.db().meta.stationName, '', '新規DBの事業所名は空');
+  eq(VS.sample.build(2026, 10).meta.stationName, 'サンプル訪問看護ステーション');
+  db.settings.slotMin = 7;
+  ok(VS.validate.db(db).some(e => e.path === 'settings.slotMin'), 'DB検証は settings. を前置する');
+});
+
 function run() {
   return tests.map(({ name, fn }) => { try { fn(); return { name, ok: true, detail: '' }; } catch (e) { return { name, ok: false, detail: e.message }; } });
 }
@@ -1598,7 +1672,8 @@ const FIELD_LABEL = {
   careManager: 'ケアマネ', hospital: '医療機関', area: 'エリア', requirements: '要件', allowedRoles: '対応可能職種', needsTwoStaff: '2名訪問', preferences: '希望条件', preferredTimeRanges: '希望時間帯', ngTimeRanges: 'NG時間帯', preferredStaffIds: '希望担当', ngStaffIds: 'NG担当', dow: '曜日', contract: '契約期間', statusPeriods: '状態期間', archived: '無効',
   role: '職種', employment: '雇用形態', skills: '領域', transport: '移動手段', color: '表示色', availability: '勤務可能枠', employmentPeriod: '在籍期間',
   durationMin: '所要時間', recurrence: '繰り返し', kind: '種類', anchorDate: '基準日', weeksOfMonth: '第N週', period: '有効期間',
-  patients: '利用者', staff: 'スタッフ', plans: '計画', visits: '訪問', holidays: '休日', settings: '設定'
+  patients: '利用者', staff: 'スタッフ', plans: '計画', visits: '訪問', holidays: '休日', settings: '設定', meta: '事業所情報',
+  businessDows: '営業曜日', dayStart: '時間軸の開始', dayEnd: '時間軸の終了', slotMin: '時刻入力の刻み', defaultDurationMin: '既定の所要時間', weekStartDow: '週の開始曜日', skipNationalHolidays: '祝日の扱い', stationName: '事業所名'
 };
 const STATUS_BTN = { confirmed: '確定にする', done: '実施済みにする', cancelled: 'キャンセルする', transferred: '振替する', planned: '予定に戻す' };
 const STATUS_BTN_FROM = { 'done>confirmed': '実施を取り消す', 'cancelled>planned': 'キャンセルを取り消す' };
@@ -1620,7 +1695,7 @@ function loadPrefs() {
     if (!p || typeof p !== 'object') return;
     if (['day', 'week', 'month', 'master', 'data'].includes(p.view)) state.view = p.view;
     if (['staff', 'patient'].includes(p.weekMode)) state.weekMode = p.weekMode;
-    if (['patients', 'staff', 'plans', 'holidays'].includes(p.master)) state.master = p.master;
+    if (['patients', 'staff', 'plans', 'holidays', 'settings'].includes(p.master)) state.master = p.master;
     if (typeof p.showInactive === 'boolean') state.filter.showInactive = p.showInactive;
   } catch (_) { /* 読めなければ既定のまま */ }
 }
@@ -1697,6 +1772,9 @@ function fillSelect(sel, options, value) {
 }
 function renderToolbar() {
   $$('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+  const station = state.db.meta.stationName || '';
+  $('#station-name').textContent = station;
+  document.title = station ? `${station} 訪問スケジュール` : '訪問スケジュール';
   const isCal = ['day', 'week', 'month'].includes(state.view);
   $('#nav').hidden = !isCal; $('#filters').hidden = !isCal;
   $('#master-bar').hidden = state.view !== 'master';
@@ -2077,7 +2155,7 @@ function availabilityRow(r = {}) {
 /* --- 一覧 --- */
 function renderMasterBar() {
   $$('#master-tabs button').forEach(b => b.classList.toggle('active', b.dataset.master === state.master));
-  const isHol = state.master === 'holidays';
+  const isHol = state.master === 'holidays' || state.master === 'settings';
   $('#master-search').hidden = isHol; $('#master-archived-label').hidden = isHol; $('#btn-master-add').hidden = isHol;
   if ($('#master-search').value !== state.masterSearch) $('#master-search').value = state.masterSearch;
   $('#master-archived').checked = state.masterArchived;
@@ -2087,6 +2165,7 @@ function renderMaster() {
   if (state.master === 'patients') return renderPatientList();
   if (state.master === 'staff') return renderStaffList();
   if (state.master === 'plans') return renderPlanList();
+  if (state.master === 'settings') return renderSettings();
   return renderHolidayList();
 }
 function instructionStatus(p) {
@@ -2442,7 +2521,56 @@ function setSkipNational(checked) {
   if (!persist()) { render(); return; }
   toast(checked ? '祝日は計画の展開から除外します' : '祝日も計画を展開します');
 }
+/* --- 設定 --- */
+function renderSettings() {
+  const s = state.db.settings, m = state.db.meta;
+  const dowChecks = UI.DOW_JA.map((n, i) => `<label class="chk"><input type="checkbox" name="businessDows" value="${i}" ${s.businessDows.includes(i) ? 'checked' : ''}> ${n}</label>`).join('');
+  const weekStart = `<select name="weekStartDow">${UI.DOW_JA.map((n, i) => `<option value="${i}" ${s.weekStartDow === i ? 'selected' : ''}>${n}曜</option>`).join('')}</select>`;
+  const slot = `<select name="slotMin">${VS.SLOT_OPTIONS.map(v => `<option value="${v}" ${s.slotMin === v ? 'selected' : ''}>${v}分</option>`).join('')}</select>`;
+  return `<form id="settings-form" class="settings-form" autocomplete="off" novalidate>` +
+    `<section class="form-sec"><h3>事業所</h3><div class="grid2">${fld('事業所名（画面の見出しと印刷物に使います）', `<input type="text" name="stationName" value="${esc(m.stationName)}" maxlength="100">`)}</div></section>` +
+    `<section class="form-sec"><h3>カレンダー</h3>` +
+    `<div class="sub-label">営業曜日（週・月表示で営業日以外を薄く表示します）</div><div class="chips-wrap">${dowChecks}</div>` +
+    `<div class="grid2">${fld('週の開始曜日（週・月表示の左端）', weekStart)}</div>` +
+    `<label class="chk" style="margin-top:10px"><input type="checkbox" name="skipNationalHolidays" ${s.skipNationalHolidays ? 'checked' : ''}> 祝日は計画の展開から除外する（事業所休業日は常に除外）</label></section>` +
+    `<section class="form-sec"><h3>時間</h3><div class="grid3">` +
+    fld('時間軸の開始（日表示）', `<input type="time" name="dayStart" value="${esc(s.dayStart)}" step="900">`) +
+    fld('時間軸の終了', `<input type="time" name="dayEnd" value="${esc(s.dayEnd)}" step="900">`) +
+    fld('時刻入力の刻み（空き枠クリック時）', slot) +
+    fld('新規訪問の既定の所要時間（分）', `<input type="number" name="defaultDurationMin" value="${s.defaultDurationMin}" min="5" max="600" step="5">`) +
+    `</div><p class="muted" style="margin:8px 0 0">時間軸の範囲より外に訪問があれば、日表示は自動で広がります。</p></section>` +
+    `<div id="form-msgs"></div><div class="btns" style="margin-top:12px"><button type="submit" class="primary">保存</button><button type="button" id="btn-settings-reset">既定値に戻す</button></div></form>`;
+}
+function readSettingsForm(form) {
+  const gv = n => form.elements.namedItem(n);
+  return {
+    settings: {
+      businessDows: checkedVals(form, 'businessDows').map(Number),
+      weekStartDow: Number(gv('weekStartDow').value),
+      skipNationalHolidays: gv('skipNationalHolidays').checked,
+      dayStart: tval(gv('dayStart').value), dayEnd: tval(gv('dayEnd').value),
+      slotMin: Number(gv('slotMin').value),
+      defaultDurationMin: gv('defaultDurationMin').value === '' ? 0 : Number(gv('defaultDurationMin').value)
+    },
+    stationName: gv('stationName').value.trim()
+  };
+}
+function saveSettings(form) {
+  const { settings, stationName } = readSettingsForm(form);
+  try { VS.repo.settings.update(state.db, settings); VS.repo.meta.update(state.db, { stationName }); }
+  catch (err) { showMsgs([{ msg: err.message }].concat(err.errors || []), []); loadDb(); return; }
+  if (!persist()) { render(); return; }
+  render(); toast('設定を保存しました');
+}
+function resetSettings() {
+  if (!confirm('設定を既定値に戻します（事業所名はそのままです）。よろしいですか？')) return;
+  try { VS.repo.settings.update(state.db, VS.create.db().settings); }
+  catch (err) { showMsgs([{ msg: err.message }].concat(err.errors || []), []); return; }
+  if (!persist()) { render(); return; }
+  render(); toast('既定値に戻しました');
+}
 function onMasterClick(e) {
+  if (e.target.closest('#btn-settings-reset')) { resetSettings(); return; }
   const pr = e.target.closest('[data-pid]'); if (pr) { openPatientModal(pr.dataset.pid); return; }
   const sr = e.target.closest('[data-sid]'); if (sr) { openStaffModal(sr.dataset.sid); return; }
   const lr = e.target.closest('[data-plid]'); if (lr) { openPlanModal(lr.dataset.plid); return; }
@@ -2504,7 +2632,10 @@ function wireEvents() {
   $('#master-search').addEventListener('input', e => { state.masterSearch = e.target.value; $('#view').innerHTML = renderMaster(); });
   $('#master-archived').onchange = e => { state.masterArchived = e.target.checked; render(); };
   $('#btn-master-add').onclick = openMasterAdd;
-  $('#view').addEventListener('submit', e => { if (e.target.id === 'holiday-form') { e.preventDefault(); addHolidayFromForm(e.target); } });
+  $('#view').addEventListener('submit', e => {
+    if (e.target.id === 'holiday-form') { e.preventDefault(); addHolidayFromForm(e.target); }
+    else if (e.target.id === 'settings-form') { e.preventDefault(); saveSettings(e.target); }
+  });
   $('#view').addEventListener('change', e => { if (e.target.id === 'skip-national') setSkipNational(e.target.checked); });
   $('#modal-body').addEventListener('click', e => {
     const add = e.target.closest('[data-rep-add]');
