@@ -652,12 +652,15 @@ def view_home() -> str:
         meta, _ = read_post(p)
         thumb = meta.get("thumbnail", "")
         img = f'<img class="list__thumb" src="/asset{esc(thumb)}" alt="">' if thumb else '<div class="list__thumb"></div>'
+        hhm = builder.clean_time(meta.get("time", ""))
+        waiting = builder.is_scheduled(meta.get("date", ""), hhm)
+        badge = '<span class="badge badge--wait">公開予定</span>' if waiting else ""
         recent.append(f"""
 <div class="list__row">
   {img}
   <div class="list__main">
-    <div class="list__title">{esc(meta.get("title", p.stem))}</div>
-    <div class="list__meta">{esc(meta.get("date", ""))}</div>
+    <div class="list__title">{esc(meta.get("title", p.stem))}{badge}</div>
+    <div class="list__meta">{esc(meta.get("date", ""))}{esc(" " + hhm if hhm else "")}</div>
   </div>
   <a class="btn btn--sm" href="/post/blog/{urllib.parse.quote(p.name)}">編集</a>
 </div>""")
