@@ -799,6 +799,12 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
     </div>
   </div>
 </div>""")
+        elif key == "date":
+            fields.append(
+                f'<div class="field"><label class="field__label">{esc(label)}</label>'
+                f'<input type="date" data-path="meta.date" value="{esc(builder.clean_date(value))}">'
+                f'</div>'
+            )
         elif key == "time":
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
@@ -1082,6 +1088,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = self.body_json()
                 meta = {k: v for k, v in (data.get("meta") or {}).items()}
                 body = data.get("body", "")
+                if meta.get("date"):
+                    meta["date"] = builder.clean_date(meta["date"])
                 if p.startswith("/api/new/"):
                     kind = p[len("/api/new/"):]
                     if not meta.get("title"):

@@ -368,6 +368,18 @@ def today_jst() -> str:
     return datetime.now(JST).strftime("%Y-%m-%d")
 
 
+def clean_date(value) -> str:
+    """日付を YYYY-MM-DD にそろえる。2026-10-2 や 2026/10/2 も受け付ける。
+    どうしても読み取れないときは、元の文字をそのまま返す（点検で気づけるように）。"""
+    m = re.match(r"^\s*(\d{4})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{1,2})", str(value or ""))
+    if not m:
+        return str(value or "").strip()
+    y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if not (1 <= mo <= 12 and 1 <= d <= 31):
+        return str(value or "").strip()
+    return f"{y:04d}-{mo:02d}-{d:02d}"
+
+
 def clean_time(value) -> str:
     """時刻を HH:MM にそろえる。空や書式違いは空文字にする。"""
     m = re.match(r"^\s*(\d{1,2})\s*[:：]\s*(\d{1,2})", str(value or ""))
