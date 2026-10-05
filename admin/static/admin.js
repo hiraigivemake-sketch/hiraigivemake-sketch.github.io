@@ -698,9 +698,22 @@
       filter.focus();
     });
 
-    // ブラウザが前回の入力を勝手に戻すことがあるので、開いたときは必ず空にする
+    // ブラウザが前回の入力を勝手に戻すことがある。戻ってくる時機がまちまちなので、
+    // 開いた直後からしばらくの間、何度か消す。
+    // ただし、ご本人が打ち始めたあとは絶対に消さない。
+    var typed = false;
+    ["keydown", "paste", "cut"].forEach(function (ev) {
+      filter.addEventListener(ev, function () { typed = true; });
+    });
+    filter.addEventListener("input", function (e) { if (e.isTrusted) typed = true; });
+
+    function forceEmpty() {
+      if (!typed && filter.value !== "") { filter.value = ""; applyFilter(); }
+    }
     filter.value = "";
     applyFilter();
-    window.addEventListener("pageshow", function () { filter.value = ""; applyFilter(); });
+    [0, 50, 150, 400, 800, 1500, 3000].forEach(function (ms) { setTimeout(forceEmpty, ms); });
+    window.addEventListener("load", forceEmpty);
+    window.addEventListener("pageshow", function () { typed = false; forceEmpty(); });
   }
 })();

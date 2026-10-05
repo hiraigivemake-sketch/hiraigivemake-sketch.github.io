@@ -52,6 +52,29 @@ import fetch_instagram as ig  # noqa: E402
 IMAGE_EXT = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".svg", ".avif"}
 
 
+import hashlib
+import secrets
+
+
+def asset_ver() -> str:
+    """admin.js / admin.css の中身から短い番号を作る。古いものが使われ続けるのを防ぐ。"""
+    h = hashlib.sha1()
+    for name in ("admin.js", "admin.css"):
+        f = ADMIN / "static" / name
+        if f.exists():
+            h.update(f.read_bytes())
+    return h.hexdigest()[:8]
+
+
+def find_box(placeholder: str) -> str:
+    """絞り込みの入力欄。毎回ちがう名前にして、ブラウザの自動入力を避ける。"""
+    return (
+        f'<input type="search" id="listFilter" name="find-{secrets.token_hex(4)}" '
+        f'placeholder="{esc(placeholder)}" autocomplete="off" '
+        f'autocorrect="off" autocapitalize="off" spellcheck="false">'
+    )
+
+
 def esc(v) -> str:
     return html.escape("" if v is None else str(v))
 
@@ -334,7 +357,7 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
     return f"""<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)}｜クリケア サイト管理</title>
-<link rel="stylesheet" href="/static/admin.css">
+<link rel="stylesheet" href="/static/admin.css?v={asset_ver()}">
 </head><body>
 <header class="topbar">
   <span class="topbar__brand">クリケア サイト管理</span>
@@ -345,7 +368,7 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
 </header>
 <div class="layout">{sidebar}<div class="content"><div class="content__inner">{body}</div></div></div>
 {modal}
-<script src="/static/admin.js" defer></script>
+<script src="/static/admin.js?v={asset_ver()}" defer></script>
 </body></html>""".encode("utf-8")
 
 
@@ -733,7 +756,7 @@ def view_list(kind: str) -> str:
 <p class="page-note">{len(rows)}件あります。新しい順に並んでいます。{waiting_note}</p>
 <div class="toolbar">
   <a class="btn btn--primary" href="/new/{kind}">＋ 新しく追加</a>
-  <input type="search" id="listFilter" placeholder="タイトルで探す" autocomplete="off">
+  {find_box("タイトルで探す")}
   <button class="btn btn--sm" type="button" id="filterClear" hidden>絞り込みをやめる</button>
   <span class="filter-note" id="filterNote" hidden></span>
 </div>
@@ -904,7 +927,7 @@ def view_images() -> str:
 </div>
 
 <div class="toolbar">
-  <input type="search" id="listFilter" placeholder="ファイル名で探す" autocomplete="off">
+  {find_box("ファイル名で探す")}
   <button class="btn btn--sm" type="button" id="filterClear" hidden>絞り込みをやめる</button>
   <span class="filter-note" id="filterNote" hidden></span>
   <button class="btn" type="button" id="pickAll">すべて選ぶ</button>
