@@ -9,9 +9,15 @@
       <a class="header__icon" href="{{ site.social.instagram }}" target="_blank" rel="noopener" aria-label="Instagram">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none"/></svg>
       </a>
+      <a class="header__icon header__icon--line" href="{{ site.social.line }}" target="_blank" rel="noopener" aria-label="公式LINE 友だち追加">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.5 2 2 5.7 2 10.2c0 4 3.6 7.4 8.4 8.1.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1.1 1 .6s6.3-3.7 8.6-6.4c1.5-1.7 2.2-3.4 2.2-4.7C23 5.7 18.5 2 12 2z"/></svg>
+      </a>
     </nav>
 
     <div class="header__actions">
+      <a class="header__icon header__icon--line header__icon--mobile" href="{{ site.social.line }}" target="_blank" rel="noopener" aria-label="公式LINE 友だち追加">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.5 2 2 5.7 2 10.2c0 4 3.6 7.4 8.4 8.1.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1.1 1 .6s6.3-3.7 8.6-6.4c1.5-1.7 2.2-3.4 2.2-4.7C23 5.7 18.5 2 12 2z"/></svg>
+      </a>
       <a class="header__btn" href="/contact/">お問い合わせ</a>
       <a class="header__btn header__btn--fill" href="/entry/">見学/応募</a>
       <button class="header__menu-btn" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="mobile-menu">
@@ -26,4 +32,8 @@
   {{# site.footer_nav }}<a href="{{ url }}">{{ label }}</a>{{/ site.footer_nav }}
   <a class="btn" href="/contact/">お問い合わせ</a>
   <a class="btn btn--fill" href="/entry/">見学/応募</a>
+  <a class="btn btn--line" href="{{ site.social.line }}" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true"><path d="M12 2C6.5 2 2 5.7 2 10.2c0 4 3.6 7.4 8.4 8.1.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1.1 1 .6s6.3-3.7 8.6-6.4c1.5-1.7 2.2-3.4 2.2-4.7C23 5.7 18.5 2 12 2z"/></svg>
+    {{ site.cta.entry.line_button }}
+  </a>
 </nav>

@@ -182,6 +182,8 @@ h3, .h3 {
 }
 .header__icon { display: flex; color: var(--c-orange); }
 .header__icon svg { width: 30px; height: 30px; }
+.header__icon--line { color: var(--c-line); }
+.header__actions .header__icon--mobile { display: none; }
 
 .header__actions { display: flex; align-items: center; gap: 12px; height: 100%; }
 .header__btn {
@@ -629,6 +631,7 @@ body.is-menu-open { overflow: hidden; }
   .header__nav { display: none; }
   .header__menu-btn { display: flex; }
   .header__actions .header__btn { display: none; }
+  .header__actions .header__icon--mobile { display: flex; }
 
   .hero { padding-top: 32px; }
   .hero__grid { grid-template-columns: minmax(0, 1fr); padding-inline: 24px; }
