@@ -150,7 +150,8 @@
       <button type="button" id="btn-check">月次チェック</button>
       <button type="button" id="btn-confirm">確定</button>
       <button type="button" id="btn-wish-packet" title="スタッフ本人の端末に渡す提出用セット（勤務表は含みません）">提出用セットを書き出す</button>
-      <button type="button" id="btn-wish-import" title="本人が書き出した提出コードを取り込みます">提出を取り込む</button>
+      <button type="button" id="btn-wish-import" title="本人が書き出した提出コードを取り込みます（複数ファイル可）">提出を取り込む</button>
+      <button type="button" id="btn-shared" title="同期フォルダ（Dropbox・OneDrive など）を介して受け渡します">共有フォルダ…</button>
       <button type="button" id="btn-wish-submit" class="primary" title="選んだ人の希望を提出コードにします">希望を提出する</button>
       <button type="button" id="btn-lock">希望を締め切る</button>
     </div>
@@ -217,7 +218,7 @@
 /* ------------------------------------------------------------------
  * 0. 定数
  * ------------------------------------------------------------------ */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const STORAGE_KEY = 'kinmu_hyo_db';
 const HISTORY_MAX = 300;
 const STORAGE_WARN_BYTES = 4 * 1024 * 1024;
@@ -313,7 +314,14 @@ function createEmptyDb() {
       maxConsecutiveDays: 6,             // 連続勤務日数の上限
       weeklyHoursCap: 40,                // 暦週の勤務時間上限（超えると警告）
       oncallAllowanceYen: 2000,          // オンコール待機1回の手当（円）
-      calloutAllowanceYen: 3000          // 呼び出し1回の手当（円）
+      calloutAllowanceYen: 3000,         // 呼び出し1回の手当（円）
+      holidayWorkAllowanceYen: 0,        // 休業日・週末の出勤1回の手当（円）
+      overtimeYenPerHour: 0,             // 時間外1時間あたりの手当（円）。実績の時間外から計算
+      fairnessOncallMax: 2,              // 許容するオンコール回数の差（超えると注意）
+      fairnessClosedMax: 2,              // 許容する休業日・週末出勤回数の差
+      priorityStaffIds: [],              // 自動作成で出勤を優先するスタッフ
+      compareStrategies: ['balanced', 'wishes', 'fair'],   // 複数案の比較に使う方針
+      payrollCodes: { workDays: '', ptoDays: '', hours: '', overtimeHours: '', oncall: '', calls: '', closedWork: '', allowanceYen: '' }   // 給与ソフトの項目コード（空なら項目名で出す）
     },
     shiftTypes: defaultShiftTypes(),
     staff: [], wishes: [], months: [], roster: [], holidays: [], history: []
@@ -329,11 +337,12 @@ function createStaff(o = {}) {
     canOncall: true, isManager: false,
     ptoBalance: 0,                       // 有給残日数（月初時点の目安）
     employmentPeriod: { start: null, end: null },
+    payrollCode: '',                     // 給与ソフトの社員コード
     color: '#2563eb', archived: false, note: '', createdAt: now, updatedAt: now
   }, o);
 }
 function createWish(o = {}) { return Object.assign({ id: genId('w'), staffId: null, date: null, kind: 'off', shiftTypeId: null, strength: 'prefer', note: '', createdAt: nowIso() }, o); }
-function createEntry(o = {}) { return Object.assign({ id: genId('r'), date: null, staffId: null, shiftTypeId: null, oncall: false, actualShiftTypeId: null, actualOncall: null, oncallCalls: 0, note: '', updatedAt: nowIso() }, o); }
+function createEntry(o = {}) { return Object.assign({ id: genId('r'), date: null, staffId: null, shiftTypeId: null, oncall: false, actualShiftTypeId: null, actualOncall: null, oncallCalls: 0, overtimeMin: 0, note: '', updatedAt: nowIso() }, o); }
 function createMonth(ym) { return { ym, status: 'draft', confirmedAt: null, wishesLocked: false }; }
 function createHoliday(o = {}) { return Object.assign({ date: null, name: '', kind: 'office' }, o); }
 
@@ -385,6 +394,7 @@ function validateStaff(s) {
   checkPeriod(e, 'employmentPeriod', s.employmentPeriod);
   if (!isStr(s.color) || !/^#[0-9a-fA-F]{6}$/.test(s.color)) e.push({ path: 'color', msg: '色は #rrggbb 形式です' });
   if (!isStr(s.note)) e.push({ path: 'note', msg: '備考は文字列です' });
+  if (!isStr(s.payrollCode) || s.payrollCode.length > 20) e.push({ path: 'payrollCode', msg: '社員コードは20文字以内です' });
   return e;
 }
 function validateWish(w) {
@@ -411,6 +421,7 @@ function validateEntry(r) {
   if (r.actualShiftTypeId !== null && (!isStr(r.actualShiftTypeId) || !r.actualShiftTypeId)) e.push({ path: 'actualShiftTypeId', msg: '実績の種別が不正です' });
   if (r.actualOncall !== null && !isBool(r.actualOncall)) e.push({ path: 'actualOncall', msg: '待機の実績は真偽値か null です' });
   if (!isInt(r.oncallCalls) || r.oncallCalls < 0 || r.oncallCalls > 50) e.push({ path: 'oncallCalls', msg: '呼び出し回数は0〜50です' });
+  if (!isInt(r.overtimeMin) || r.overtimeMin < 0 || r.overtimeMin > 720) e.push({ path: 'overtimeMin', msg: '時間外は0〜720分です' });
   if (!isStr(r.note)) e.push({ path: 'note', msg: '備考は文字列です' });
   return e;
 }
@@ -440,7 +451,11 @@ function validateSettings(s) {
   for (const k of ['minNurses', 'minTotal', 'minNursesClosed', 'minTotalClosed', 'oncallPerDay']) if (!isInt(s[k]) || s[k] < 0 || s[k] > 50) e.push({ path: k, msg: '0〜50の整数です' });
   if (!isInt(s.maxConsecutiveDays) || s.maxConsecutiveDays < 1 || s.maxConsecutiveDays > 14) e.push({ path: 'maxConsecutiveDays', msg: '連続勤務の上限は1〜14日です' });
   if (!isInt(s.weeklyHoursCap) || s.weeklyHoursCap < 1 || s.weeklyHoursCap > 100) e.push({ path: 'weeklyHoursCap', msg: '週の時間上限は1〜100です' });
-  for (const k of ['oncallAllowanceYen', 'calloutAllowanceYen']) if (!isInt(s[k]) || s[k] < 0 || s[k] > 100000) e.push({ path: k, msg: '手当は0〜100000円の整数です' });
+  for (const k of ['oncallAllowanceYen', 'calloutAllowanceYen', 'holidayWorkAllowanceYen', 'overtimeYenPerHour']) if (!isInt(s[k]) || s[k] < 0 || s[k] > 100000) e.push({ path: k, msg: '手当は0〜100000円の整数です' });
+  for (const k of ['fairnessOncallMax', 'fairnessClosedMax']) if (!isInt(s[k]) || s[k] < 0 || s[k] > 31) e.push({ path: k, msg: '許容する差は0〜31です' });
+  if (!Array.isArray(s.priorityStaffIds) || s.priorityStaffIds.some(x => !isStr(x)) || new Set(s.priorityStaffIds).size !== s.priorityStaffIds.length) e.push({ path: 'priorityStaffIds', msg: '優先スタッフが不正です' });
+  if (!Array.isArray(s.compareStrategies) || !s.compareStrategies.length || s.compareStrategies.some(x => !['balanced', 'wishes', 'fair'].includes(x)) || new Set(s.compareStrategies).size !== s.compareStrategies.length) e.push({ path: 'compareStrategies', msg: '比較に使う方針を1つ以上選んでください' });
+  if (!isObj(s.payrollCodes) || Object.values(s.payrollCodes).some(v => !isStr(v) || v.length > 20)) e.push({ path: 'payrollCodes', msg: '給与ソフトの項目コードは20文字以内の文字列です' });
   return e;
 }
 function validateMeta(m) {
@@ -513,9 +528,9 @@ function isConfirmed(db, ym) { return monthOf(db, ym).status === 'confirmed'; }
 function effectiveTypeId(r, mode) { return mode === 'actual' && r.actualShiftTypeId ? r.actualShiftTypeId : r.shiftTypeId; }
 function entryHours(db, r, mode) { return shiftHours(shiftTypeById(db, effectiveTypeId(r, mode))); }
 function isWorkEntry(db, r, mode) { const st = shiftTypeById(db, effectiveTypeId(r, mode)); return !!(st && st.isWork); }
-/* 予定と実績が異なるセル（種別または待機）。[{ entry, staff, planned, actual }] */
+/* 予定と実績が異なるセル（種別・待機・時間外）。[{ entry, staff, planned, actual }] */
 function actualChanges(db, ym) {
-  return db.roster.filter(r => ymOf(r.date) === ym && ((r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId) || (r.actualOncall !== null && r.actualOncall !== r.oncall)))
+  return db.roster.filter(r => ymOf(r.date) === ym && ((r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId) || (r.actualOncall !== null && r.actualOncall !== r.oncall) || (r.overtimeMin || 0) > 0 || (r.oncallCalls || 0) > 0))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.staffId.localeCompare(b.staffId)))
     .map(r => ({ entry: r, staff: staffById(db, r.staffId), planned: shiftTypeById(db, r.shiftTypeId), actual: shiftTypeById(db, effectiveTypeId(r, 'actual')), oncallChanged: r.actualOncall !== null && r.actualOncall !== r.oncall }));
 }
@@ -535,7 +550,7 @@ function staffMonthStats(db, staffId, ym, mode = 'plan') {
   const s = staffById(db, staffId);
   const dates = monthDates(ym);
   const entries = db.roster.filter(r => r.staffId === staffId && ymOf(r.date) === ym);
-  const st = { workDays: 0, restDays: 0, ptoDays: 0, oncall: 0, calls: 0, allowanceYen: 0, hours: 0, closedWork: 0, blank: 0, perDay: 0, target: 0, paidHours: 0, diff: 0, changed: 0 };
+  const st = { workDays: 0, restDays: 0, ptoDays: 0, oncall: 0, calls: 0, overtimeHours: 0, allowanceYen: 0, oncallAllowanceYen: 0, holidayWorkAllowanceYen: 0, overtimeAllowanceYen: 0, hours: 0, closedWork: 0, blank: 0, perDay: 0, target: 0, paidHours: 0, diff: 0, changed: 0 };
   for (const r of entries) {
     const t = shiftTypeById(db, effectiveTypeId(r, mode));
     const oc = mode === 'actual' && r.actualOncall !== null ? r.actualOncall : r.oncall;
@@ -546,7 +561,12 @@ function staffMonthStats(db, staffId, ym, mode = 'plan') {
     if (t.isWork) { st.workDays++; st.hours += shiftHours(t); if (isClosedDay(db, r.date)) st.closedWork++; }
     else { st.restDays++; if (t.usesPto) st.ptoDays++; }
   }
-  st.allowanceYen = st.oncall * (db.settings.oncallAllowanceYen || 0) + st.calls * (db.settings.calloutAllowanceYen || 0);
+  st.overtimeHours = mode === 'actual' ? Math.round(entries.reduce((a, r) => a + (r.overtimeMin || 0), 0) / 60 * 100) / 100 : 0;
+  const S = db.settings;
+  st.oncallAllowanceYen = st.oncall * (S.oncallAllowanceYen || 0) + st.calls * (S.calloutAllowanceYen || 0);
+  st.holidayWorkAllowanceYen = st.closedWork * (S.holidayWorkAllowanceYen || 0);
+  st.overtimeAllowanceYen = Math.round(st.overtimeHours * (S.overtimeYenPerHour || 0));
+  st.allowanceYen = st.oncallAllowanceYen + st.holidayWorkAllowanceYen + st.overtimeAllowanceYen;
   const employedDates = s ? dates.filter(d => staffEmployedOn(s, d)) : [];
   st.blank = employedDates.filter(d => !entries.some(r => r.date === d)).length;
   st.perDay = s && s.workDows.length ? Math.round(s.weeklyHours / s.workDows.length * 100) / 100 : 0;
@@ -669,8 +689,8 @@ function checkMonth(db, ym) {
     if (s.canOncall) oncalls.push(st.oncall);
     if (s.employment === 'fulltime') closedWorks.push(st.closedWork);
   }
-  if (oncalls.length > 1 && Math.max(...oncalls) - Math.min(...oncalls) > 2) push('unfairOncall', `オンコール回数の差が ${Math.max(...oncalls) - Math.min(...oncalls)} 回あります（最少 ${Math.min(...oncalls)}・最多 ${Math.max(...oncalls)}）`, { date: `${ym}-01`, staffId: null });
-  if (closedWorks.length > 1 && Math.max(...closedWorks) - Math.min(...closedWorks) > 2) push('unfairClosedWork', `休業日・週末の出勤回数の差が ${Math.max(...closedWorks) - Math.min(...closedWorks)} 回あります`, { date: `${ym}-01`, staffId: null });
+  if (oncalls.length > 1 && Math.max(...oncalls) - Math.min(...oncalls) > db.settings.fairnessOncallMax) push('unfairOncall', `オンコール回数の差が ${Math.max(...oncalls) - Math.min(...oncalls)} 回あります（最少 ${Math.min(...oncalls)}・最多 ${Math.max(...oncalls)}）`, { date: `${ym}-01`, staffId: null });
+  if (closedWorks.length > 1 && Math.max(...closedWorks) - Math.min(...closedWorks) > db.settings.fairnessClosedMax) push('unfairClosedWork', `休業日・週末の出勤回数の差が ${Math.max(...closedWorks) - Math.min(...closedWorks)} 回あります`, { date: `${ym}-01`, staffId: null });
   const f = fte(db, ym);
   if (staffList.length && f.nurseFte < REQUIRED_NURSE_FTE) push('nurseFteLow', `看護職員の常勤換算が ${f.nurseFte} です（基準 ${REQUIRED_NURSE_FTE}）`, { date: `${ym}-01`, staffId: null });
   const rank = l => (l === 'block' ? 0 : 1);
@@ -758,10 +778,10 @@ const roster = {
     return cur;
   },
   /* 実績のオンコール: 待機したか（null=予定どおり）と呼び出し回数 */
-  setActualOncall(db, staffId, date, { actualOncall, oncallCalls }) {
+  setActualOncall(db, staffId, date, { actualOncall, oncallCalls, overtimeMin }) {
     const cur = entryFor(db, staffId, date);
     if (!cur) throw new ValidationError('勤務が入っていません', [{ path: 'date', msg: date }]);
-    const next = Object.assign(clone(cur), { actualOncall: actualOncall === undefined ? cur.actualOncall : actualOncall, oncallCalls: oncallCalls === undefined ? cur.oncallCalls : oncallCalls, updatedAt: nowIso() });
+    const next = Object.assign(clone(cur), { actualOncall: actualOncall === undefined ? cur.actualOncall : actualOncall, oncallCalls: oncallCalls === undefined ? cur.oncallCalls : oncallCalls, overtimeMin: overtimeMin === undefined ? cur.overtimeMin : overtimeMin, updatedAt: nowIso() });
     const errs = validateEntry(next);
     if (errs.length) throw new ValidationError('実績の内容に誤りがあります', errs);
     db.roster[db.roster.indexOf(cur)] = next;
@@ -937,6 +957,8 @@ function autoFill(db, ym, { overwrite = false, strategy = 'balanced' } = {}) {
       .sort((a, b) => {
         const wa = wishFor(db, a.id, d), wb = wishFor(db, b.id, d); const pa = wa && wa.kind === 'work' ? 1 : 0, pb = wb && wb.kind === 'work' ? 1 : 0;
         if (pb !== pa) return pb - pa;
+        const qa = S.priorityStaffIds.includes(a.id) ? 1 : 0, qb = S.priorityStaffIds.includes(b.id) ? 1 : 0;   // 設定の優先スタッフ
+        if (qb !== qa) return qb - qa;
         if (strategy === 'fair' && isClosedDay(db, d)) { const ca = staffMonthStats(db, a.id, ym).closedWork, cb = staffMonthStats(db, b.id, ym).closedWork; if (ca !== cb) return ca - cb; }   // 休業日の出勤は回数の少ない人から
         return (deficit(b) - deficit(a)) || (order(a.id) - order(b.id));
       });
@@ -1007,7 +1029,7 @@ function scoreMonth(db, ym) {
 /* 複数案: 方針ごとに複製したデータで作り直し、点数と中身を返す。元のデータは変えない */
 function generateCandidates(db, ym) {
   assertEditable(db, ym);
-  return Object.keys(FILL_STRATEGIES).map(strategy => {
+  return (db.settings.compareStrategies || Object.keys(FILL_STRATEGIES)).filter(k => FILL_STRATEGIES[k]).map(strategy => {
     const work = clone(db);
     const r = autoFill(work, ym, { overwrite: true, strategy });
     return { strategy, label: FILL_STRATEGIES[strategy], score: scoreMonth(work, ym), entries: work.roster.filter(x => ymOf(x.date) === ym), filled: r.filled, unmet: r.unmet };
@@ -1064,11 +1086,11 @@ function shiftsJson(db, ym) { return JSON.stringify({ source: 'kinmu_hyo', ym, s
 /* 給与・集計用 CSV: スタッフ×日の略号と月集計 */
 function rosterCsv(db, ym, mode = 'plan') {
   const dates = monthDates(ym);
-  const head = ['スタッフ', '職種', '雇用', mode === 'actual' ? '実績' : '予定'].concat(dates.map(d => String(Number(d.slice(8))))).concat(['出勤日数', '休日数', '有給', 'オンコール待機', '勤務時間', '有給込み時間', '所定時間', '差'].concat(mode === 'actual' ? ['予定と異なる日数', '呼び出し回数', 'オンコール手当'] : ['オンコール手当（予定）']));
+  const head = ['スタッフ', '職種', '雇用', mode === 'actual' ? '実績' : '予定'].concat(dates.map(d => String(Number(d.slice(8))))).concat(['出勤日数', '休日数', '有給', 'オンコール待機', '勤務時間', '有給込み時間', '所定時間', '差', '休業日出勤'].concat(mode === 'actual' ? ['予定と異なる日数', '呼び出し回数', '時間外(時間)', 'オンコール手当', '休業日出勤手当', '時間外手当', '手当合計'] : ['オンコール手当（予定）', '休業日出勤手当（予定）', '手当合計（予定）']));
   const rows = staffInMonth(db, ym).map(s => {
     const st = staffMonthStats(db, s.id, ym, mode);
     return [s.name, ENUMS.staffRole[s.role], ENUMS.employment[s.employment], mode === 'actual' ? '実績' : '予定'].concat(dates.map(d => { const r = entryFor(db, s.id, d); if (!r) return ''; const t = shiftTypeById(db, effectiveTypeId(r, mode)); const oc = mode === 'actual' && r.actualOncall !== null ? r.actualOncall : r.oncall; return (t ? t.code : '?') + (oc ? '◎' : '') + (mode === 'actual' && r.oncallCalls ? `(${r.oncallCalls})` : ''); }))
-      .concat([st.workDays, st.restDays, st.ptoDays, st.oncall, st.hours, st.paidHours, st.target, st.diff].concat(mode === 'actual' ? [st.changed, st.calls, st.allowanceYen] : [st.allowanceYen]));
+      .concat([st.workDays, st.restDays, st.ptoDays, st.oncall, st.hours, st.paidHours, st.target, st.diff, st.closedWork].concat(mode === 'actual' ? [st.changed, st.calls, st.overtimeHours, st.oncallAllowanceYen, st.holidayWorkAllowanceYen, st.overtimeAllowanceYen, st.allowanceYen] : [st.oncallAllowanceYen, st.holidayWorkAllowanceYen, st.allowanceYen]));
   });
   return toCsv([head].concat(rows));
 }
@@ -1107,6 +1129,21 @@ function wishSubmission(db, ym, staffId) {
   return JSON.stringify({ type: 'kinmu_wish_submission', ym, staffId: s.id, staffName: s.name, submittedAt: nowIso(),
     wishes: db.wishes.filter(w => w.staffId === s.id && ymOf(w.date) === ym).map(w => ({ date: w.date, kind: w.kind, shiftTypeId: w.shiftTypeId, strength: w.strength, note: w.note })) });
 }
+/* 給与ソフト取り込み用（縦持ち）: 年月, 社員コード, 氏名, 項目コード, 項目名, 値。項目コードは設定（空なら項目名） */
+const PAYROLL_ITEMS = [['workDays', '出勤日数'], ['ptoDays', '有給日数'], ['hours', '勤務時間'], ['overtimeHours', '時間外時間'], ['oncall', 'オンコール待機回数'], ['calls', '呼び出し回数'], ['closedWork', '休業日出勤回数'], ['allowanceYen', '手当合計']];
+function payrollCsv(db, ym, mode = 'actual') {
+  const codes = db.settings.payrollCodes || {};
+  const rows = [['年月', '社員コード', '氏名', '項目コード', '項目名', '値']];
+  for (const s of staffInMonth(db, ym)) {
+    const st = staffMonthStats(db, s.id, ym, mode);
+    for (const [key, label] of PAYROLL_ITEMS) rows.push([ym, s.payrollCode || '', s.name, codes[key] || label, label, st[key]]);
+  }
+  return toCsv(rows);
+}
+/* 複数の提出ファイルをまとめて解析する。[{ name, sub }] または [{ name, error }] */
+function scanSubmissions(files) {
+  return files.map(f => { try { return { name: f.name, sub: parseWishSubmission(f.text) }; } catch (err) { return { name: f.name, error: err.message }; } });
+}
 function parseWishSubmission(text) {
   let j; try { j = JSON.parse(String(text).replace(/^\uFEFF/, '').trim()); } catch (err) { throw new Error('提出コードとして読み取れません: ' + err.message); }
   if (!isObj(j) || j.type !== 'kinmu_wish_submission' || !isYm(j.ym) || !Array.isArray(j.wishes)) throw new Error('希望の提出コードではありません');
@@ -1143,6 +1180,13 @@ const MIGRATIONS = {
     if (isObj(db.meta) && db.meta.submitMode === undefined) db.meta.submitMode = null;
     db.schemaVersion = 2;
     return db;
+  },
+  /* v3: 手当の種類（休業日出勤・時間外）、公平性の許容差、優先スタッフ、比較方針、給与ソフトのコード */
+  3: db => {
+    (Array.isArray(db.roster) ? db.roster : []).forEach(r => { if (isObj(r) && !isInt(r.overtimeMin)) r.overtimeMin = 0; });
+    (Array.isArray(db.staff) ? db.staff : []).forEach(s => { if (isObj(s) && !isStr(s.payrollCode)) s.payrollCode = ''; });
+    db.schemaVersion = 3;
+    return db;
   }
 };
 function migrate(raw) {
@@ -1154,6 +1198,7 @@ function migrate(raw) {
   for (const k of ['staff', 'wishes', 'months', 'roster', 'holidays', 'history']) if (!Array.isArray(db[k])) db[k] = [];
   if (!Array.isArray(db.shiftTypes) || !db.shiftTypes.length) db.shiftTypes = empty.shiftTypes;
   db.settings = Object.assign({}, empty.settings, isObj(db.settings) ? db.settings : {});
+  db.settings.payrollCodes = Object.assign({}, empty.settings.payrollCodes, isObj(db.settings.payrollCodes) ? db.settings.payrollCodes : {});
   db.meta = Object.assign({}, empty.meta, isObj(db.meta) ? db.meta : {});
   db.schemaVersion = SCHEMA_VERSION;
   return db;
@@ -1211,10 +1256,10 @@ root.RS = {
   create: { db: createEmptyDb, shiftType: createShiftType, defaultShiftTypes, staff: createStaff, wish: createWish, entry: createEntry, month: createMonth, holiday: createHoliday },
   validate: { shiftType: validateShiftType, staff: validateStaff, wish: validateWish, entry: validateEntry, month: validateMonth, holiday: validateHoliday, settings: validateSettings, meta: validateMeta, db: validateDb },
   derive: { staffDisplayName, shiftTypeById, staffById, isNurse, shiftHours, isHoliday, isClosedDay, staffEmployedOn, entryFor, wishFor, monthOf, isConfirmed, effectiveTypeId, entryHours, isWorkEntry, actualChanges, staffInMonth, dayStats, staffMonthStats, fte, consecutiveWorkDays, weeksWithoutRest },
-  rules: { checkEntry, checkDay, checkMonth, autoFill, FILL_STRATEGIES, scoreMonth, generateCandidates, applyCandidate, copyPattern, japaneseHolidays },
+  rules: { checkEntry, checkDay, checkMonth, autoFill, FILL_STRATEGIES, scoreMonth, generateCandidates, applyCandidate, copyPattern, japaneseHolidays }, PAYROLL_ITEMS,
   repo: { staff, shiftTypes, roster, wishes, months, holidays, settings: settingsRepo, meta: metaRepo, pushHistory },
-  exporters: { shiftsForVisitApp, shiftsCsv, shiftsJson, rosterCsv, csvCell, toCsv, wishPacket, wishSubmission },
-  importers: { staffFromVisitApp, loadWishPacket, parseWishSubmission },
+  exporters: { shiftsForVisitApp, shiftsCsv, shiftsJson, rosterCsv, payrollCsv, csvCell, toCsv, wishPacket, wishSubmission },
+  importers: { staffFromVisitApp, loadWishPacket, parseWishSubmission, scanSubmissions },
   store: { load, save, clear, parseDb, exportJson, migrate },
   sample: { build: buildSampleDb },
   ValidationError
@@ -1443,7 +1488,7 @@ t('保存: 往復・破損退避・移行', () => {
   st.setItem(RS.STORAGE_KEY, '{bad');
   const broken = RS.store.load(st); ok(broken.fresh && broken.backupKey);
   const m = RS.store.migrate({ schemaVersion: 1, staff: [] });
-  eq(m.schemaVersion, 2); eq(m.shiftTypes.length, 9); eq(m.settings.minNurses, 2); eq(RS.validate.db(m), []);
+  eq(m.schemaVersion, 3); eq(m.shiftTypes.length, 9); eq(m.settings.minNurses, 2); eq(RS.validate.db(m), []);
   throws(() => RS.store.migrate({ schemaVersion: 99 }));
   const bad = RS.create.db(); bad.settings.minNurses = -1;
   ok(!RS.store.save(bad, st).ok);
@@ -1542,8 +1587,63 @@ t('実績のオンコール: 待機と呼び出し回数、手当の集計', () 
   ok(csv[0].includes('呼び出し回数') && csv[0].includes('オンコール手当') && csv.some(l => l.includes('◎(2)')));
   const old = JSON.parse(JSON.stringify(db)); old.schemaVersion = 1; old.roster.forEach(r => { delete r.actualOncall; delete r.oncallCalls; }); delete old.meta.submitMode; delete old.settings.oncallAllowanceYen;
   const m = RS.store.migrate(old);
-  eq([m.schemaVersion, m.roster[0].actualOncall, m.roster[0].oncallCalls, m.settings.oncallAllowanceYen, m.meta.submitMode], [2, null, 0, 2000, null]);
+  eq([m.schemaVersion, m.roster[0].actualOncall, m.roster[0].oncallCalls, m.settings.oncallAllowanceYen, m.meta.submitMode], [3, null, 0, 2000, null]);
   eq(RS.validate.db(m), []);
+});
+t('手当: 休業日出勤・時間外と給与ソフト形式CSV', () => {
+  const db = RS.sample.build(YM);
+  RS.repo.settings.update(db, { holidayWorkAllowanceYen: 3000, overtimeYenPerHour: 2000 });
+  const work = db.roster.find(r => r.staffId === 's_sample1' && RS.derive.isWorkEntry(db, r) && !r.oncall);
+  RS.repo.roster.setActualOncall(db, 's_sample1', work.date, { overtimeMin: 90 });
+  throws(() => RS.repo.roster.setActualOncall(db, 's_sample1', work.date, { overtimeMin: 721 }));
+  const closedDay = RS.date.monthDates(YM).find(d => RS.derive.isClosedDay(db, d) && RS.derive.entryFor(db, 's_sample1', d));
+  RS.repo.roster.setActual(db, 's_sample1', closedDay, 'st_day');
+  const act = RS.derive.staffMonthStats(db, 's_sample1', YM, 'actual'), plan = RS.derive.staffMonthStats(db, 's_sample1', YM);
+  eq(act.overtimeHours, 1.5); eq(act.overtimeAllowanceYen, 3000); eq(act.closedWork, plan.closedWork + 1); eq(act.holidayWorkAllowanceYen, act.closedWork * 3000);
+  eq(act.allowanceYen, act.oncallAllowanceYen + act.holidayWorkAllowanceYen + act.overtimeAllowanceYen);
+  eq(plan.overtimeHours, 0, '予定に時間外はない');
+  ok(RS.derive.actualChanges(db, YM).some(c => c.entry.overtimeMin === 90), '時間外は差異一覧に出る');
+  RS.repo.staff.update(db, 's_sample1', { payrollCode: 'E001' });
+  RS.repo.settings.update(db, { payrollCodes: Object.assign({}, db.settings.payrollCodes, { hours: 'H01' }) });
+  const rows = RS.exporters.payrollCsv(db, YM, 'actual').split('\r\n').filter(Boolean);
+  eq(rows[0], '\uFEFF年月,社員コード,氏名,項目コード,項目名,値');
+  eq(rows.length, 1 + 5 * RS.PAYROLL_ITEMS.length);
+  ok(rows.some(l => l === `2026-10,E001,看護 太郎,H01,勤務時間,${act.hours}`), '項目コードと値');
+  ok(rows.some(l => l.startsWith('2026-10,,看護 花子,出勤日数,出勤日数,')), 'コード未設定は項目名');
+  const csv = RS.exporters.rosterCsv(db, YM, 'actual').split('\r\n')[0];
+  ok(csv.includes('時間外手当') && csv.includes('休業日出勤手当') && csv.includes('手当合計'));
+  throws(() => RS.repo.settings.update(db, { payrollCodes: { hours: 123 } }));
+});
+t('設定: 公平性の許容差・優先スタッフ・比較方針', () => {
+  const db = RS.sample.build(YM);
+  RS.date.monthDates(YM).forEach(d => { const r = RS.derive.entryFor(db, 's_sample1', d); RS.repo.roster.set(db, { date: d, staffId: 's_sample1', shiftTypeId: r.shiftTypeId, oncall: true }); });
+  ok(RS.rules.checkMonth(db, YM).some(i => i.code === 'unfairOncall'));
+  RS.repo.settings.update(db, { fairnessOncallMax: 31 });
+  ok(!RS.rules.checkMonth(db, YM).some(i => i.code === 'unfairOncall'), '許容差を広げると注意が消える');
+  throws(() => RS.repo.settings.update(db, { compareStrategies: [] }), '方針は1つ以上');
+  throws(() => RS.repo.settings.update(db, { compareStrategies: ['nope'] }));
+  const db2 = RS.sample.build(YM);
+  RS.repo.settings.update(db2, { compareStrategies: ['fair'] });
+  eq(RS.rules.generateCandidates(db2, YM).map(c => c.strategy), ['fair'], '比較に使う方針を絞れる');
+  // 優先スタッフ: 看護職員2名・全体2名の日に、優先した人が選ばれる
+  const db3 = RS.create.db();
+  ['n1', 'n2', 'n3'].forEach((id, i) => RS.repo.staff.add(db3, RS.create.staff({ id, name: 'N' + (i + 1) })));
+  RS.repo.settings.update(db3, { priorityStaffIds: ['n3'], minTotal: 1, minNurses: 1 });
+  RS.rules.autoFill(db3, YM);
+  const n3 = RS.derive.staffMonthStats(db3, 'n3', YM), n1 = RS.derive.staffMonthStats(db3, 'n1', YM);
+  ok(n3.workDays >= n1.workDays, `優先スタッフの出勤日数 ${n3.workDays} ≥ ${n1.workDays}`);
+  eq(RS.validate.db(db3), []);
+});
+t('提出ファイルの一括解析と v3 への移行', () => {
+  const db = RS.sample.build(YM);
+  const good = RS.exporters.wishSubmission(db, YM, 's_sample1');
+  const r = RS.importers.scanSubmissions([{ name: 'a.json', text: good }, { name: 'b.txt', text: '{bad' }, { name: 'c.json', text: '{"type":"other"}' }]);
+  eq(r.map(x => !!x.sub), [true, false, false]); ok(r[1].error.includes('読み取れません') && r[2].error.includes('提出コードではありません'));
+  const old = JSON.parse(JSON.stringify(db)); old.schemaVersion = 2; old.roster.forEach(x => { delete x.overtimeMin; }); old.staff.forEach(x => { delete x.payrollCode; }); delete old.settings.payrollCodes; delete old.settings.priorityStaffIds;
+  const m = RS.store.migrate(old);
+  eq([m.schemaVersion, m.roster[0].overtimeMin, m.staff[0].payrollCode, m.settings.priorityStaffIds, m.settings.payrollCodes.hours], [3, 0, '', [], '']);
+  eq(RS.validate.db(m), []);
+  const m2 = RS.store.migrate({ schemaVersion: 1, staff: [] }); eq(m2.schemaVersion, 3); eq(RS.validate.db(m2), []);
 });
 function run() { return tests.map(({ name, fn }) => { try { fn(); return { name, ok: true, detail: '' }; } catch (e) { return { name, ok: false, detail: e.message }; } }); }
 root.RS_TESTS = { run, count: tests.length };
@@ -1692,9 +1792,9 @@ function renderRoster() {
       let mark = '', title = '';
       if (r && !actual) { const iss = RS.rules.checkEntry(d, r); if (iss.length) { const blk = iss.some(x => isBlock(x.code)); mark = `<span class="mark ${blk ? 'block' : 'warn'}"></span>`; title = iss.map(x => x.msg).join(' / '); } }
       const ocChanged = actual && r && r.actualOncall !== null && r.actualOncall !== r.oncall;
-      const changed = actual && r && ((r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId) || ocChanged);
+      const changed = actual && r && ((r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId) || ocChanged || r.overtimeMin > 0 || r.oncallCalls > 0);
       const standby = r ? (actual && r.actualOncall !== null ? r.actualOncall : r.oncall) : false;
-      if (changed) title = `予定: ${(stById(r.shiftTypeId) || {}).name || '?'}${r.oncall ? '・待機' : ''} → 実績: ${st ? st.name : '?'}${standby ? '・待機' : ''}${r.oncallCalls ? `・呼び出し ${r.oncallCalls} 回` : ''}`;
+      if (changed) title = `予定: ${(stById(r.shiftTypeId) || {}).name || '?'}${r.oncall ? '・待機' : ''} → 実績: ${st ? st.name : '?'}${standby ? '・待機' : ''}${r.oncallCalls ? `・呼び出し ${r.oncallCalls} 回` : ''}${r.overtimeMin ? `・時間外 ${r.overtimeMin} 分` : ''}`;
       const wish = w && !actual ? `<span class="wish ${w.strength}" title="${esc(RS.ENUMS.wishKind[w.kind])}">${WISH_CODE[w.kind]}</span>` : '';
       if (!employed) return `<td class="closed" title="在籍期間外">—</td>`;
       return `<td class="cell ${dayHeaderCls(day)} ${r ? '' : 'blank'} ${changed ? 'changed' : ''}" data-sid="${esc(s.id)}" data-date="${day}" title="${esc(title)}">${r ? codeSpan(st) : '·'}${standby ? '<span class="oc">◎</span>' : ''}${changed ? '<span class="act">実</span>' : ''}${wish}${mark}</td>`;
@@ -1717,13 +1817,16 @@ function actualPopover(x, y, sid, date) {
   const standby = r.actualOncall === null ? r.oncall : r.actualOncall;
   openPopover(x, y, `<h4>${esc(sName(s))}　${Number(date.slice(5, 7))}/${Number(date.slice(8))}（${DOW[RS.date.dowOf(date)]}）の実績</h4><p class="muted" style="margin:0 0 6px">予定: ${planned ? esc(planned.name) : '?'}${r.oncall ? '・オンコール待機' : ''}${cur ? `　→ 実績: <b>${esc((stById(cur) || {}).name || '?')}</b>` : '　（勤務は予定どおり）'}</p><div class="opts">${opts}</div>` +
     `<div class="sub-label">オンコール待機の実績${r.actualOncall === null ? '（予定どおり）' : ''}</div><div class="foot"><button type="button" class="small ${standby ? 'primary' : ''}" data-standby="1">待機した</button><button type="button" class="small ${!standby ? 'primary' : ''}" data-standby="0">待機なし</button><span class="stepper">呼び出し <button type="button" class="small" data-calls="-1">−</button><input type="number" id="act-calls" value="${r.oncallCalls}" min="0" max="50"><button type="button" class="small" data-calls="1">＋</button> 回</span></div>` +
-    `<div class="foot"><button type="button" class="small" data-clear-actual ${cur || r.actualOncall !== null ? '' : 'disabled'}>すべて予定どおりに戻す</button></div>`);
+    `<div class="sub-label">時間外（実績）</div><div class="foot"><span class="stepper"><button type="button" class="small" data-ot="-15">−15</button><input type="number" id="act-ot" value="${r.overtimeMin}" min="0" max="720" step="15"><button type="button" class="small" data-ot="15">＋15</button> 分</span></div>` +
+    `<div class="foot"><button type="button" class="small" data-clear-actual ${cur || r.actualOncall !== null || r.oncallCalls || r.overtimeMin ? '' : 'disabled'}>すべて予定どおりに戻す</button></div>`);
   const pop = $('#popover');
   pop.querySelectorAll('[data-set-actual]').forEach(b => { b.onclick = () => { const id = b.dataset.setActual; closePopover(); commit(() => RS.repo.roster.setActual(d, sid, date, id === r.shiftTypeId ? null : id)); }; });
   pop.querySelectorAll('[data-standby]').forEach(b => { b.onclick = () => { const v = b.dataset.standby === '1'; closePopover(); commit(() => RS.repo.roster.setActualOncall(d, sid, date, { actualOncall: v === r.oncall ? null : v })); }; });
   pop.querySelectorAll('[data-calls]').forEach(b => { b.onclick = () => { const n = Math.max(0, Math.min(50, Number($('#act-calls').value || 0) + Number(b.dataset.calls))); closePopover(); commit(() => RS.repo.roster.setActualOncall(d, sid, date, { oncallCalls: n })); }; });
   $('#act-calls').onchange = () => { const n = Math.max(0, Math.min(50, Number($('#act-calls').value || 0))); closePopover(); commit(() => RS.repo.roster.setActualOncall(d, sid, date, { oncallCalls: n })); };
-  const cl = pop.querySelector('[data-clear-actual]'); if (cl) cl.onclick = () => { closePopover(); commit(() => { RS.repo.roster.setActual(d, sid, date, null); RS.repo.roster.setActualOncall(d, sid, date, { actualOncall: null, oncallCalls: 0 }); }); };
+  pop.querySelectorAll('[data-ot]').forEach(b => { b.onclick = () => { const n = Math.max(0, Math.min(720, Number($('#act-ot').value || 0) + Number(b.dataset.ot))); closePopover(); commit(() => RS.repo.roster.setActualOncall(d, sid, date, { overtimeMin: n })); }; });
+  $('#act-ot').onchange = () => { const n = Math.max(0, Math.min(720, Number($('#act-ot').value || 0))); closePopover(); commit(() => RS.repo.roster.setActualOncall(d, sid, date, { overtimeMin: n })); };
+  const cl = pop.querySelector('[data-clear-actual]'); if (cl) cl.onclick = () => { closePopover(); commit(() => { RS.repo.roster.setActual(d, sid, date, null); RS.repo.roster.setActualOncall(d, sid, date, { actualOncall: null, oncallCalls: 0, overtimeMin: 0 }); }); };
 }
 function cellPopover(x, y, sid, date) {
   if (state.mode === 'actual') { actualPopover(x, y, sid, date); return; }
@@ -1792,12 +1895,12 @@ function renderSummary() {
   const f = RS.derive.fte(d, ym, mode), issues = RS.rules.checkMonth(d, ym);
   const blocks = issues.filter(i => i.level === 'block').length;
   const changes = RS.derive.actualChanges(d, ym);
-  const changesHtml = actual ? `<div class="list-wrap" style="max-height:none"><h3 style="font-size:14px;margin:12px 16px 4px">予定と実績の差異（${changes.length} 日）</h3>${changes.length ? `<table class="list"><thead><tr><th>日</th><th>スタッフ</th><th>予定</th><th>実績</th><th>備考</th></tr></thead><tbody>${changes.map(c => `<tr><td>${Number(c.entry.date.slice(5, 7))}/${Number(c.entry.date.slice(8))}（${DOW[RS.date.dowOf(c.entry.date)]}）</td><td>${esc(c.staff ? sName(c.staff) : '?')}</td><td>${c.planned ? codeSpan(c.planned) + esc(c.planned.name) : '?'}${c.entry.oncall ? ' ◎' : ''}</td><td>${c.actual ? codeSpan(c.actual) + esc(c.actual.name) : '?'}${(c.entry.actualOncall === null ? c.entry.oncall : c.entry.actualOncall) ? ' ◎' : ''}${c.oncallChanged ? `<span class="muted">（待機 ${c.entry.actualOncall ? 'あり' : 'なし'}）</span>` : ''}${c.entry.oncallCalls ? `<span class="muted"> 呼び出し ${c.entry.oncallCalls} 回</span>` : ''}</td><td>${esc(c.entry.note)}</td></tr>`).join('')}</tbody></table>` : '<p class="muted" style="margin:0 16px 12px">実績はすべて予定どおりです。</p>'}</div>` : '';
+  const changesHtml = actual ? `<div class="list-wrap" style="max-height:none"><h3 style="font-size:14px;margin:12px 16px 4px">予定と実績の差異（${changes.length} 日）</h3>${changes.length ? `<table class="list"><thead><tr><th>日</th><th>スタッフ</th><th>予定</th><th>実績</th><th>備考</th></tr></thead><tbody>${changes.map(c => `<tr><td>${Number(c.entry.date.slice(5, 7))}/${Number(c.entry.date.slice(8))}（${DOW[RS.date.dowOf(c.entry.date)]}）</td><td>${esc(c.staff ? sName(c.staff) : '?')}</td><td>${c.planned ? codeSpan(c.planned) + esc(c.planned.name) : '?'}${c.entry.oncall ? ' ◎' : ''}</td><td>${c.actual ? codeSpan(c.actual) + esc(c.actual.name) : '?'}${(c.entry.actualOncall === null ? c.entry.oncall : c.entry.actualOncall) ? ' ◎' : ''}${c.oncallChanged ? `<span class="muted">（待機 ${c.entry.actualOncall ? 'あり' : 'なし'}）</span>` : ''}${c.entry.oncallCalls ? `<span class="muted"> 呼び出し ${c.entry.oncallCalls} 回</span>` : ''}${c.entry.overtimeMin ? `<span class="muted"> 時間外 ${c.entry.overtimeMin} 分</span>` : ''}</td><td>${esc(c.entry.note)}</td></tr>`).join('')}</tbody></table>` : '<p class="muted" style="margin:0 16px 12px">実績はすべて予定どおりです。</p>'}</div>` : '';
   const cards = `<div class="cards"><div class="card"><div class="muted">${actual ? '実績の' : ''}看護職員の常勤換算</div><div class="big ${f.nurseFte < RS.REQUIRED_NURSE_FTE ? 'ng' : ''}">${f.nurseFte}</div><div class="muted">基準 ${RS.REQUIRED_NURSE_FTE}・看護 ${f.nurseHours} 時間</div></div>` +
     `<div class="card"><div class="muted">全体の常勤換算</div><div class="big">${f.totalFte}</div><div class="muted">分母 ${f.base} 時間（週${d.settings.fteWeeklyHours}時間）</div></div>` +
     `<div class="card"><div class="muted">月次チェック</div><div class="big ${blocks ? 'ng' : ''}">${blocks ? `要対応 ${blocks}` : '要対応なし'}</div><div class="muted">注意 ${issues.length - blocks} 件　<button type="button" class="linkish" id="btn-check2">一覧を見る</button></div></div></div>`;
-  const rows = staffList.map(s => { const st = RS.derive.staffMonthStats(d, s.id, ym, mode); return `<tr><td><span class="dot" style="background:${esc(s.color)}"></span>${esc(sName(s))}<div class="muted">${esc(s.name)}</div></td><td>${esc(RS.ENUMS.staffRole[s.role])}</td><td>${esc(RS.ENUMS.employment[s.employment])}</td><td class="num">${st.workDays}</td><td class="num">${st.restDays}</td><td class="num ${st.ptoDays > s.ptoBalance ? 'ng-text' : ''}">${st.ptoDays} / ${s.ptoBalance}</td><td class="num">${st.oncall}</td>${actual ? `<td class="num">${st.calls}</td>` : ''}<td class="num">${st.allowanceYen.toLocaleString()}</td><td class="num">${st.closedWork}</td><td class="num">${st.hours}</td><td class="num">${st.target}</td><td class="num ${Math.abs(st.diff) > st.perDay ? 'ng-text' : ''}">${st.diff > 0 ? '+' : ''}${st.diff}</td>${actual ? `<td class="num ${st.changed ? 'warn-text' : ''}">${st.changed}</td>` : `<td class="num ${st.blank ? 'warn-text' : ''}">${st.blank}</td>`}</tr>`; }).join('');
-  return cards + `<div class="list-wrap"><table class="list"><thead><tr><th>スタッフ</th><th>職種</th><th>雇用</th><th>出勤</th><th>休</th><th>有給 / 残</th><th>OC待機</th>${actual ? '<th>呼び出し</th>' : ''}<th>OC手当(円)</th><th>週末・休業日出勤</th><th>勤務時間</th><th>所定</th><th>差</th><th>${actual ? '予定と異なる日' : '未入力'}</th></tr></thead><tbody>${rows}</tbody></table></div>` + changesHtml;
+  const rows = staffList.map(s => { const st = RS.derive.staffMonthStats(d, s.id, ym, mode); return `<tr><td><span class="dot" style="background:${esc(s.color)}"></span>${esc(sName(s))}<div class="muted">${esc(s.name)}</div></td><td>${esc(RS.ENUMS.staffRole[s.role])}</td><td>${esc(RS.ENUMS.employment[s.employment])}</td><td class="num">${st.workDays}</td><td class="num">${st.restDays}</td><td class="num ${st.ptoDays > s.ptoBalance ? 'ng-text' : ''}">${st.ptoDays} / ${s.ptoBalance}</td><td class="num">${st.oncall}</td>${actual ? `<td class="num">${st.calls}</td><td class="num">${st.overtimeHours}</td>` : ''}<td class="num" title="オンコール ${st.oncallAllowanceYen.toLocaleString()} / 休業日出勤 ${st.holidayWorkAllowanceYen.toLocaleString()} / 時間外 ${st.overtimeAllowanceYen.toLocaleString()}">${st.allowanceYen.toLocaleString()}</td><td class="num">${st.closedWork}</td><td class="num">${st.hours}</td><td class="num">${st.target}</td><td class="num ${Math.abs(st.diff) > st.perDay ? 'ng-text' : ''}">${st.diff > 0 ? '+' : ''}${st.diff}</td>${actual ? `<td class="num ${st.changed ? 'warn-text' : ''}">${st.changed}</td>` : `<td class="num ${st.blank ? 'warn-text' : ''}">${st.blank}</td>`}</tr>`; }).join('');
+  return cards + `<div class="list-wrap"><table class="list"><thead><tr><th>スタッフ</th><th>職種</th><th>雇用</th><th>出勤</th><th>休</th><th>有給 / 残</th><th>OC待機</th>${actual ? '<th>呼び出し</th><th>時間外(h)</th>' : ''}<th>手当合計(円)</th><th>週末・休業日出勤</th><th>勤務時間</th><th>所定</th><th>差</th><th>${actual ? '予定と異なる日' : '未入力'}</th></tr></thead><tbody>${rows}</tbody></table></div>` + changesHtml;
 }
 function openMonthCheck() {
   const d = db(), ym = state.ym, issues = RS.rules.checkMonth(d, ym);
@@ -1823,15 +1926,16 @@ function renderOutput() {
   if (!months.includes(o.ym)) months.unshift(o.ym);
   const staffList = sortedStaff(RS.derive.staffInMonth(d, o.ym));
   const form = `<form id="output-form" class="output-form" autocomplete="off"><label>種類<select name="type">` +
-    [['roster', '勤務表（印刷・A4横）'], ['personal', '個人別の勤務表'], ['payroll', '給与・集計用CSV'], ['visit', '①訪問スケジュール向け 勤務データ']].map(([v, l]) => `<option value="${v}" ${o.type === v ? 'selected' : ''}>${l}</option>`).join('') + '</select></label>' +
+    [['roster', '勤務表（印刷・A4横）'], ['personal', '個人別の勤務表'], ['payroll', '給与・集計用CSV'], ['payrollSoft', '給与ソフト取り込み用CSV（縦持ち）'], ['visit', '①訪問スケジュール向け 勤務データ']].map(([v, l]) => `<option value="${v}" ${o.type === v ? 'selected' : ''}>${l}</option>`).join('') + '</select></label>' +
     `<label>対象月<select name="ym">${months.map(m => `<option value="${m}" ${m === o.ym ? 'selected' : ''}>${ymTitle(m)}</option>`).join('')}</select></label>` +
     (o.type === 'personal' ? `<label>スタッフ<select name="target"><option value="">全員</option>${staffList.map(s => `<option value="${esc(s.id)}" ${o.target === s.id ? 'selected' : ''}>${esc(sName(s))}</option>`).join('')}</select></label>` : '') +
     (o.type === 'roster' || o.type === 'personal' ? '<button type="button" class="primary" id="btn-print">印刷</button>' : '') +
-    (o.type === 'payroll' ? `<label>集計<select name="mode"><option value="plan" ${o.mode === 'plan' ? 'selected' : ''}>予定</option><option value="actual" ${o.mode === 'actual' ? 'selected' : ''}>実績</option></select></label><button type="button" class="primary" id="btn-csv-payroll">CSVを書き出す</button>` : '') +
+    (o.type === 'payroll' || o.type === 'payrollSoft' ? `<label>集計<select name="mode"><option value="plan" ${o.mode === 'plan' ? 'selected' : ''}>予定</option><option value="actual" ${o.mode === 'actual' ? 'selected' : ''}>実績</option></select></label><button type="button" class="primary" id="${o.type === 'payrollSoft' ? 'btn-csv-payroll-soft' : 'btn-csv-payroll'}">CSVを書き出す</button>` : '') +
     (o.type === 'visit' ? '<button type="button" class="primary" id="btn-csv-visit">CSVを書き出す</button><button type="button" id="btn-json-visit">JSONを書き出す</button>' : '') + '</form>';
   let body;
   if (o.type === 'roster') body = printRoster(o.ym);
   else if (o.type === 'personal') body = printPersonal(o.ym, o.target);
+  else if (o.type === 'payrollSoft') body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} の${o.mode === 'actual' ? '実績' : '予定'}を、給与ソフトに取り込みやすい縦持ち（1行 = スタッフ×項目）で保存します。列は 年月, 社員コード, 氏名, 項目コード, 項目名, 値。社員コードはスタッフ画面、項目コードは設定画面で登録します（空なら項目名が入ります）。</p><pre class="sample">${esc(RS.exporters.payrollCsv(d, o.ym, o.mode).replace(/^\uFEFF/, '').split('\r\n').slice(0, 9).join('\n'))}…</pre></div></div>`;
   else if (o.type === 'payroll') body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} の${o.mode === 'actual' ? '実績（未入力の日は予定どおり）' : '予定'}を、スタッフ×日の略号と月集計（出勤日数・休日数・有給・オンコール・勤務時間・有給込み時間・所定時間・差${o.mode === 'actual' ? '・予定と異なる日数' : ''}）として UTF-8（BOM付き）のCSVで保存します。</p><pre class="sample">${esc(RS.exporters.rosterCsv(d, o.ym, o.mode).replace(/^\uFEFF/, '').split('\r\n').slice(0, 4).join('\n'))}…</pre></div></div>`;
   else body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} の勤務を、①訪問スケジュールの「スタッフ › 取り込む」で読める形式で保存します。勤務の種別は開始〜終了の時刻、休みと研修は「休み」になります。スタッフは名前と staffId で照合されます。</p><p class="muted">${RS.exporters.shiftsForVisitApp(d, o.ym).length} 行（勤務 ${RS.exporters.shiftsForVisitApp(d, o.ym).filter(r => r.kind === 'work').length}・休み ${RS.exporters.shiftsForVisitApp(d, o.ym).filter(r => r.kind === 'off').length}）</p><pre class="sample">${esc(RS.exporters.shiftsCsv(d, o.ym).replace(/^\uFEFF/, '').split('\r\n').slice(0, 5).join('\n'))}…</pre></div></div>`;
   return form + `<div id="print-area">${body}</div>`;
@@ -1900,7 +2004,11 @@ function renderSettings() {
     `<section class="form-sec"><h4>カレンダー</h4><div class="sub-label">営業曜日</div><div class="chips-wrap">${dowChecks}</div><div class="grid2" style="margin-top:8px">${fld('週の開始曜日', `<select name="weekStartDow">${DOW.map((n, i) => `<option value="${i}" ${s.weekStartDow === i ? 'selected' : ''}>${n}曜</option>`).join('')}</select>`)}</div><label class="chk" style="margin-top:8px"><input type="checkbox" name="skipNationalHolidays" ${s.skipNationalHolidays ? 'checked' : ''}> 祝日は休業日として扱う</label></section>` +
     `<section class="form-sec"><h4>配置の基準</h4><div class="grid2">${fld('営業日の最低看護職員数', num('minNurses', s.minNurses, 0, 50))}${fld('営業日の最低出勤人数', num('minTotal', s.minTotal, 0, 50))}${fld('休業日・週末の最低看護職員数', num('minNursesClosed', s.minNursesClosed, 0, 50))}${fld('休業日・週末の最低出勤人数', num('minTotalClosed', s.minTotalClosed, 0, 50))}${fld('毎日のオンコール人数', num('oncallPerDay', s.oncallPerDay, 0, 50))}</div></section>` +
     `<section class="form-sec"><h4>労務の上限</h4><div class="grid2">${fld('連続勤務日数の上限（超えると保存不可）', num('maxConsecutiveDays', s.maxConsecutiveDays, 1, 14))}${fld('暦週の勤務時間上限（超えると警告）', num('weeklyHoursCap', s.weeklyHoursCap, 1, 100))}</div></section>` +
-    `<section class="form-sec"><h4>オンコール手当</h4><div class="grid2">${fld('待機1回あたり（円）', num('oncallAllowanceYen', s.oncallAllowanceYen, 0, 100000, 100))}${fld('呼び出し1回あたり（円）', num('calloutAllowanceYen', s.calloutAllowanceYen, 0, 100000, 100))}</div><p class="muted" style="margin:6px 0 0">集計と給与用CSVの手当額に使います。予定は待機のみ、実績は待機と呼び出しで計算します。</p></section>` +
+    `<section class="form-sec"><h4>手当</h4><div class="grid2">${fld('オンコール待機1回（円）', num('oncallAllowanceYen', s.oncallAllowanceYen, 0, 100000, 100))}${fld('呼び出し1回（円）', num('calloutAllowanceYen', s.calloutAllowanceYen, 0, 100000, 100))}${fld('休業日・週末の出勤1回（円）', num('holidayWorkAllowanceYen', s.holidayWorkAllowanceYen, 0, 100000, 100))}${fld('時間外1時間あたり（円）', num('overtimeYenPerHour', s.overtimeYenPerHour, 0, 100000, 100))}</div><p class="muted" style="margin:6px 0 0">集計と給与用CSVの手当額に使います。予定は待機と休業日出勤、実績はそれに呼び出しと時間外を加えて計算します。</p></section>` +
+    `<section class="form-sec"><h4>自動作成と公平性</h4><div class="grid2">${fld('許容するオンコール回数の差（超えると注意）', num('fairnessOncallMax', s.fairnessOncallMax, 0, 31))}${fld('許容する休業日・週末出勤回数の差', num('fairnessClosedMax', s.fairnessClosedMax, 0, 31))}</div>` +
+    `<div class="sub-label">出勤を優先するスタッフ（所定時間の不足より先に選びます）</div><div class="chips-wrap">${sortedStaff(db().staff.filter(x => !x.archived)).map(x => `<label class="chk"><input type="checkbox" name="priorityStaffIds" value="${esc(x.id)}" ${s.priorityStaffIds.includes(x.id) ? 'checked' : ''}> ${esc(sName(x))}</label>`).join('') || '<span class="muted">スタッフが登録されていません</span>'}</div>` +
+    `<div class="sub-label">「案を比較」で作る方針</div><div class="chips-wrap">${Object.entries(RS.rules.FILL_STRATEGIES).map(([k, l]) => `<label class="chk"><input type="checkbox" name="compareStrategies" value="${k}" ${s.compareStrategies.includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></section>` +
+    `<section class="form-sec"><h4>給与ソフトの項目コード</h4><p class="muted" style="margin:0 0 6px">「給与ソフト取り込み用CSV」の項目コード列に入ります。空欄なら項目名が入ります。</p><div class="grid3">${RS.PAYROLL_ITEMS.map(([k, l]) => fld(l, `<input type="text" name="pc_${k}" value="${esc(s.payrollCodes[k] || '')}" maxlength="20">`)).join('')}</div></section>` +
     `<div id="form-msgs"></div><div class="btns" style="margin-top:12px"><button type="submit" class="primary">保存</button><button type="button" id="btn-settings-reset">既定値に戻す</button></div></form>`;
 }
 function masterFooterHtml(entity) {
@@ -1929,6 +2037,7 @@ function openStaffModal(id) {
     fld('週の所定労働時間', `<input type="number" name="weeklyHours" value="${d.weeklyHours}" min="0" max="80" step="0.5">`) + fld('表示色', `<input type="color" name="color" value="${esc(d.color)}">`) +
     fld('既定のシフト（自動作成で使う）', `<select name="defaultShiftTypeId">${activeShiftTypes().filter(t => t.isWork).map(t => `<option value="${esc(t.id)}" ${t.id === d.defaultShiftTypeId ? 'selected' : ''}>${esc(t.code)} ${esc(t.name)}</option>`).join('')}</select>`) +
     fld('有給残（日）', `<input type="number" name="ptoBalance" value="${d.ptoBalance}" min="0" max="60" step="0.5">`) +
+    fld('社員コード（給与ソフト用）', `<input type="text" name="payrollCode" value="${esc(d.payrollCode)}" maxlength="20">`) +
     `<div class="chips-wrap"><label class="chk"><input type="checkbox" name="canOncall" ${d.canOncall ? 'checked' : ''}> オンコール可</label><label class="chk"><input type="checkbox" name="isManager" ${d.isManager ? 'checked' : ''}> 管理者</label></div>` +
     fld('在籍開始', `<input type="date" name="employmentStart" value="${esc(d.employmentPeriod.start || '')}">`) + fld('在籍終了（在籍中は空欄）', `<input type="date" name="employmentEnd" value="${esc(d.employmentPeriod.end || '')}">`) +
     `</div><div class="sub-label">勤務できる曜日</div><div class="chips-wrap">${DOW.map((n, i) => `<label class="chk"><input type="checkbox" name="workDows" value="${i}" ${d.workDows.includes(i) ? 'checked' : ''}> ${n}</label>`).join('')}</div></section>` +
@@ -1937,7 +2046,7 @@ function openStaffModal(id) {
   const form = $('#master-form'), gv = n => form.elements.namedItem(n);
   form.addEventListener('submit', ev => { ev.preventDefault(); saveEntity('staff', s, {
     name: gv('name').value.trim(), displayName: gv('displayName').value.trim(), role: gv('role').value, employment: gv('employment').value, weeklyHours: Number(gv('weeklyHours').value), color: gv('color').value,
-    defaultShiftTypeId: gv('defaultShiftTypeId').value, ptoBalance: Number(gv('ptoBalance').value), canOncall: gv('canOncall').checked, isManager: gv('isManager').checked,
+    defaultShiftTypeId: gv('defaultShiftTypeId').value, ptoBalance: Number(gv('ptoBalance').value), canOncall: gv('canOncall').checked, isManager: gv('isManager').checked, payrollCode: gv('payrollCode').value.trim(),
     employmentPeriod: { start: gv('employmentStart').value || null, end: gv('employmentEnd').value || null }, workDows: checkedVals(form, 'workDows').map(Number), note: gv('note').value.trim()
   }, RS.validate.staff, RS.create.staff); });
   wireMasterFooter('staff', s, s ? `「${sName(s)}」を無効にします。入力済みの勤務は残りますが、以後の月には表示されません。よろしいですか？` : '');
@@ -1961,7 +2070,10 @@ function openShiftTypeModal(id) {
 }
 function saveSettings(form) {
   const gv = n => form.elements.namedItem(n), num = n => (gv(n).value === '' ? -1 : Number(gv(n).value));
-  const patch = { weekStartDow: Number(gv('weekStartDow').value), businessDows: checkedVals(form, 'businessDows').map(Number), skipNationalHolidays: gv('skipNationalHolidays').checked, fteWeeklyHours: num('fteWeeklyHours'), minNurses: num('minNurses'), minTotal: num('minTotal'), minNursesClosed: num('minNursesClosed'), minTotalClosed: num('minTotalClosed'), oncallPerDay: num('oncallPerDay'), maxConsecutiveDays: num('maxConsecutiveDays'), weeklyHoursCap: num('weeklyHoursCap'), oncallAllowanceYen: num('oncallAllowanceYen'), calloutAllowanceYen: num('calloutAllowanceYen') };
+  const patch = { weekStartDow: Number(gv('weekStartDow').value), businessDows: checkedVals(form, 'businessDows').map(Number), skipNationalHolidays: gv('skipNationalHolidays').checked, fteWeeklyHours: num('fteWeeklyHours'), minNurses: num('minNurses'), minTotal: num('minTotal'), minNursesClosed: num('minNursesClosed'), minTotalClosed: num('minTotalClosed'), oncallPerDay: num('oncallPerDay'), maxConsecutiveDays: num('maxConsecutiveDays'), weeklyHoursCap: num('weeklyHoursCap'), oncallAllowanceYen: num('oncallAllowanceYen'), calloutAllowanceYen: num('calloutAllowanceYen'),
+    holidayWorkAllowanceYen: num('holidayWorkAllowanceYen'), overtimeYenPerHour: num('overtimeYenPerHour'), fairnessOncallMax: num('fairnessOncallMax'), fairnessClosedMax: num('fairnessClosedMax'),
+    priorityStaffIds: checkedVals(form, 'priorityStaffIds'), compareStrategies: checkedVals(form, 'compareStrategies'),
+    payrollCodes: Object.fromEntries(RS.PAYROLL_ITEMS.map(([k]) => [k, gv('pc_' + k).value.trim()])) };
   try { RS.repo.settings.update(db(), patch); RS.repo.meta.update(db(), { stationName: gv('stationName').value.trim() }); }
   catch (err) { showMsgs([{ msg: err.message }].concat(err.errors || []), []); loadDb(); return; }
   if (!persist()) { render(); return; }
@@ -2000,6 +2112,7 @@ function wireEvents() {
   $('#btn-compare').onclick = openCompare;
   $('#btn-wish-packet').onclick = () => { download(`希望提出用セット_${state.ym}.json`, RS.exporters.wishPacket(db(), state.ym), 'application/json'); toast('提出用セットを書き出しました。スタッフに渡してください'); };
   $('#btn-wish-import').onclick = openWishImport;
+  $('#btn-shared').onclick = openSharedFolder;
   $('#btn-wish-submit').onclick = openWishSubmit;
   $('#btn-load-packet').onclick = () => $('#file-load-packet').click();
   $('#file-load-packet').onchange = ev => { const f = ev.target.files[0]; if (!f) return; const reader = new FileReader(); reader.onload = () => { try { const d = RS.importers.loadWishPacket(String(reader.result)); if (!confirm(`「${d.meta.stationName || '事業所'}」の ${ymTitle(d.meta.submitMode.ym)} の提出用セットを読み込みます。この端末の勤務表データは置き換わります（必要なら先にJSONを書き出してください）。よろしいですか？`)) return; const r = RS.store.save(d, localStorage); if (!r.ok) { alert('保存できませんでした'); return; } loadDb(); state.ym = d.meta.submitMode.ym; state.view = 'wishes'; state.wishStaff = ''; render(); toast('提出用セットを読み込みました。自分の名前を選んでください'); } catch (e) { alert(e.message); } ev.target.value = ''; }; reader.readAsText(f); };
@@ -2014,6 +2127,7 @@ function wireEvents() {
     const wcell = e.target.closest('td.cell[data-wsid]'); if (wcell) { wishPopover(e.clientX, e.clientY, wcell.dataset.wsid, wcell.dataset.date); return; }
     if (e.target.closest('#btn-check2')) { openMonthCheck(); return; }
     if (e.target.closest('#btn-print')) { window.print(); return; }
+    if (e.target.closest('#btn-csv-payroll-soft')) { download(`給与取込_${state.output.mode === 'actual' ? '実績' : '予定'}_${state.output.ym}.csv`, RS.exporters.payrollCsv(db(), state.output.ym, state.output.mode), 'text/csv;charset=utf-8'); toast('書き出しました'); return; }
     if (e.target.closest('#btn-csv-payroll')) { download(`勤務表_${state.output.mode === 'actual' ? '実績' : '予定'}_${state.output.ym}.csv`, RS.exporters.rosterCsv(db(), state.output.ym, state.output.mode), 'text/csv;charset=utf-8'); toast('書き出しました'); return; }
     if (e.target.closest('#btn-csv-visit')) { download(`勤務データ_${state.output.ym}.csv`, RS.exporters.shiftsCsv(db(), state.output.ym), 'text/csv;charset=utf-8'); toast('書き出しました'); return; }
     if (e.target.closest('#btn-json-visit')) { download(`勤務データ_${state.output.ym}.json`, RS.exporters.shiftsJson(db(), state.output.ym), 'application/json'); toast('書き出しました'); return; }
@@ -2095,22 +2209,62 @@ function openCompare() {
 function openWishSubmit() {
   const s = RS.derive.staffById(db(), state.wishStaff); if (!s) return;
   const code = RS.exporters.wishSubmission(db(), state.ym, s.id), n = JSON.parse(code).wishes.length;
-  openModal('希望を提出する', `<p><b>${esc(sName(s))}</b> の ${ymTitle(state.ym)} の希望 <b>${n}</b> 件を提出コードにしました。ファイルで渡すか、コードをコピーしてメッセージで送ってください。管理者は「希望 › 提出を取り込む」で受け取ります。</p><textarea class="code" id="submit-code" readonly>${esc(code)}</textarea><div class="modal-foot"><button type="button" id="btn-copy-code">コードをコピー</button><button type="button" class="primary" id="btn-dl-code">ファイルで保存</button><span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button></div>`);
+  openModal('希望を提出する', `<p><b>${esc(sName(s))}</b> の ${ymTitle(state.ym)} の希望 <b>${n}</b> 件を提出コードにしました。ファイルで渡すか、コードをコピーしてメッセージで送ってください。管理者は「希望 › 提出を取り込む」で受け取ります。</p><textarea class="code" id="submit-code" readonly>${esc(code)}</textarea><div class="modal-foot"><button type="button" id="btn-copy-code">コードをコピー</button><button type="button" class="primary" id="btn-dl-code">ファイルで保存</button>${FS_SUPPORTED ? '<button type="button" id="btn-fs-submit">共有フォルダに保存</button>' : ''}${navigator.share ? '<button type="button" id="btn-share-code">共有（LINE・メール）</button>' : ''}<span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button></div><div id="form-msgs"></div>`);
   $('#btn-close-modal').onclick = closeModal;
+  const fsb = $('#btn-fs-submit'); if (fsb) fsb.onclick = async () => { try { if (!sharedDirHandle) sharedDirHandle = await loadSharedHandle(); if (!sharedDirHandle) { sharedDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' }); await saveSharedHandle(sharedDirHandle); } if (!(await ensurePermission(sharedDirHandle))) throw new Error('フォルダへの書き込みが許可されませんでした'); await writeToShared(`希望_${s.name}_${state.ym}.json`, code); toast('共有フォルダに保存しました。管理者が取り込みます'); } catch (err) { if (err && err.name !== 'AbortError') showMsgs([{ msg: err.message }], []); } };
+  const sh = $('#btn-share-code'); if (sh) sh.onclick = async () => { try { const file = new File([code], `希望_${s.name}_${state.ym}.json`, { type: 'application/json' }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: '勤務希望', text: `${s.name} ${ymTitle(state.ym)} の勤務希望` }); else await navigator.share({ title: '勤務希望', text: code }); } catch (err) { if (err && err.name !== 'AbortError') showMsgs([{ msg: err.message }], []); } };
   $('#btn-copy-code').onclick = async () => { try { await navigator.clipboard.writeText(code); toast('コピーしました'); } catch (_) { $('#submit-code').select(); document.execCommand && document.execCommand('copy'); toast('コピーしました（選択した内容）'); } };
   $('#btn-dl-code').onclick = () => download(`希望_${esc(s.name)}_${state.ym}.json`, code, 'application/json');
 }
+/* 複数の提出をまとめて取り込む。files: [{ name, text }] */
+function applySubmissions(files) {
+  const scanned = RS.importers.scanSubmissions(files);
+  const results = [];
+  for (const x of scanned) {
+    if (!x.sub) { results.push({ name: x.name, ok: false, msg: x.error }); continue; }
+    try { const r = RS.repo.wishes.applySubmission(db(), x.sub); results.push({ name: x.name, ok: true, msg: `${sName(r.staff)} ${ymTitle(x.sub.ym)} ${r.added} 件（置き換え ${r.removed} 件）` }); }
+    catch (err) { results.push({ name: x.name, ok: false, msg: err.message }); }
+  }
+  const okCount = results.filter(r => r.ok).length;
+  if (okCount) { if (!persist()) { render(); return; } }
+  render();
+  openModal('提出の取り込み結果', `<p>${okCount} 件を取り込みました${results.length - okCount ? `。${results.length - okCount} 件は取り込めませんでした` : ''}。</p><ul class="issue-list">${results.map(r => `<li class="${r.ok ? '' : 'ng-text'}">${esc(r.name)}: ${esc(r.msg)}</li>`).join('')}</ul><div class="modal-foot"><span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button></div>`);
+  $('#btn-close-modal').onclick = closeModal;
+}
+function readFiles(fileList) { return Promise.all(Array.from(fileList).map(f => new Promise(res => { const reader = new FileReader(); reader.onload = () => res({ name: f.name, text: String(reader.result) }); reader.readAsText(f); }))); }
 function openWishImport() {
-  openModal('提出された希望を取り込む', `<p class="muted">本人が書き出した提出コード（JSON）を貼り付けるか、ファイルを選んでください。その人のその月の希望を置き換えます。締め切った月には取り込めません。</p><textarea class="code" id="import-code" placeholder='{"type":"kinmu_wish_submission", ...}'></textarea><div class="modal-foot"><button type="button" id="btn-import-file">ファイルを選ぶ</button><input type="file" id="file-import-code" accept="application/json,.json,.txt" hidden><span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button><button type="button" class="primary" id="btn-import-apply">取り込む</button></div><div id="form-msgs"></div>`);
+  openModal('提出された希望を取り込む', `<p class="muted">本人が書き出した提出コード（JSON）を貼り付けるか、ファイルを選んでください（複数選択可）。その人のその月の希望を置き換えます。締め切った月には取り込めません。</p><textarea class="code" id="import-code" placeholder='{"type":"kinmu_wish_submission", ...}'></textarea><div class="modal-foot"><button type="button" id="btn-import-file">ファイルを選ぶ（複数可）</button><input type="file" id="file-import-code" accept="application/json,.json,.txt" multiple hidden><span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button><button type="button" class="primary" id="btn-import-apply">取り込む</button></div><div id="form-msgs"></div>`);
   $('#btn-close-modal').onclick = closeModal;
   $('#btn-import-file').onclick = () => $('#file-import-code').click();
-  $('#file-import-code').onchange = ev => { const f = ev.target.files[0]; if (!f) return; const reader = new FileReader(); reader.onload = () => { $('#import-code').value = String(reader.result); }; reader.readAsText(f); };
+  $('#file-import-code').onchange = async ev => { const files = await readFiles(ev.target.files); if (!files.length) return; if (files.length === 1) { $('#import-code').value = files[0].text; return; } closeModal(); applySubmissions(files); };
   $('#btn-import-apply').onclick = () => {
     let sub; try { sub = RS.importers.parseWishSubmission($('#import-code').value); } catch (err) { showMsgs([{ msg: err.message }], []); return; }
     if (sub.ym !== state.ym && !confirm(`この提出は ${ymTitle(sub.ym)} の希望です。表示中の ${ymTitle(state.ym)} とは違いますが取り込みますか？`)) return;
     let r; closeModal();
     if (commit(() => { r = RS.repo.wishes.applySubmission(db(), sub); })) toast(`${sName(r.staff)} の ${ymTitle(sub.ym)} の希望 ${r.added} 件を取り込みました（置き換え ${r.removed} 件）`);
   };
+}
+
+/* ---------- 共有フォルダ連携（File System Access API。Chrome / Edge） ---------- */
+const FS_SUPPORTED = typeof window.showDirectoryPicker === 'function';
+let sharedDirHandle = null;
+function fsDb() { return new Promise((res, rej) => { const q = indexedDB.open('kinmu_hyo_fs', 1); q.onupgradeneeded = () => q.result.createObjectStore('handles'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function loadSharedHandle() { try { const d = await fsDb(); return await new Promise((res, rej) => { const tx = d.transaction('handles', 'readonly'); const r = tx.objectStore('handles').get('shared'); r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error); }); } catch (_) { return null; } }
+async function saveSharedHandle(h) { try { const d = await fsDb(); await new Promise((res, rej) => { const tx = d.transaction('handles', 'readwrite'); if (h) tx.objectStore('handles').put(h, 'shared'); else tx.objectStore('handles').delete('shared'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); } catch (_) { /* 保存できなくても今回のセッションでは使える */ } }
+async function ensurePermission(h) { if (!h) return false; const q = { mode: 'readwrite' }; if ((await h.queryPermission(q)) === 'granted') return true; return (await h.requestPermission(q)) === 'granted'; }
+async function writeToShared(name, text) { const fh = await sharedDirHandle.getFileHandle(name, { create: true }); const w = await fh.createWritable(); await w.write(text); await w.close(); }
+async function listSharedSubmissions() { const files = []; for await (const [name, h] of sharedDirHandle.entries()) { if (h.kind === 'file' && /\.(json|txt)$/i.test(name) && /^希望_|submission/i.test(name)) { const f = await h.getFile(); files.push({ name, text: await f.text() }); } } return files; }
+async function openSharedFolder() {
+  if (!FS_SUPPORTED) { openModal('共有フォルダ連携', `<p>このブラウザはフォルダ連携（File System Access API）に対応していません。Chrome または Edge で開くと、同期フォルダ（Dropbox・OneDrive・Google ドライブなど）を介した受け渡しが使えます。</p><p class="muted">代わりに「提出を取り込む」で複数ファイルをまとめて選べます。スマホでは提出コードの「共有」からLINEやメールに送れます。</p><div class="modal-foot"><span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button></div>`); $('#btn-close-modal').onclick = closeModal; return; }
+  if (!sharedDirHandle) sharedDirHandle = await loadSharedHandle();
+  const linked = !!sharedDirHandle;
+  openModal('共有フォルダ連携', `<p class="muted">Dropbox・OneDrive・Google ドライブなどの同期フォルダを選ぶと、提出用セットの保存と、スタッフが置いた提出ファイル（「希望_…json」）の一括取り込みがそのフォルダ経由でできます。スタッフ側も同じフォルダを選べば、提出が直接そこに保存されます。</p>` +
+    `<p>現在: <b>${linked ? esc(sharedDirHandle.name) + ' を使用中' : '未設定'}</b></p><div class="btns"><button type="button" id="btn-fs-pick">${linked ? 'フォルダを変える' : 'フォルダを選ぶ'}</button>${linked ? `<button type="button" class="primary" id="btn-fs-packet">提出用セットをフォルダに保存</button><button type="button" class="primary" id="btn-fs-import">フォルダの提出を取り込む</button><button type="button" class="danger" id="btn-fs-unlink">解除</button>` : ''}</div><div id="form-msgs"></div><div class="modal-foot"><span class="spacer"></span><button type="button" id="btn-close-modal">閉じる</button></div>`);
+  $('#btn-close-modal').onclick = closeModal;
+  $('#btn-fs-pick').onclick = async () => { try { const h = await window.showDirectoryPicker({ mode: 'readwrite' }); sharedDirHandle = h; await saveSharedHandle(h); closeModal(); openSharedFolder(); toast(`「${h.name}」を共有フォルダにしました`); } catch (err) { if (err && err.name !== 'AbortError') showMsgs([{ msg: err.message }], []); } };
+  const pk = $('#btn-fs-packet'); if (pk) pk.onclick = async () => { try { if (!(await ensurePermission(sharedDirHandle))) throw new Error('フォルダへの書き込みが許可されませんでした'); await writeToShared(`希望提出用セット_${state.ym}.json`, RS.exporters.wishPacket(db(), state.ym)); toast('提出用セットを共有フォルダに保存しました'); } catch (err) { showMsgs([{ msg: err.message }], []); } };
+  const im = $('#btn-fs-import'); if (im) im.onclick = async () => { try { if (!(await ensurePermission(sharedDirHandle))) throw new Error('フォルダの読み取りが許可されませんでした'); const files = await listSharedSubmissions(); if (!files.length) { showMsgs([], [{ msg: 'フォルダに提出ファイル（希望_…json）がありません' }]); return; } closeModal(); applySubmissions(files); } catch (err) { showMsgs([{ msg: err.message }], []); } };
+  const un = $('#btn-fs-unlink'); if (un) un.onclick = async () => { sharedDirHandle = null; await saveSharedHandle(null); closeModal(); toast('共有フォルダの設定を解除しました'); };
 }
 
 /* ---------- 起動 ---------- */
