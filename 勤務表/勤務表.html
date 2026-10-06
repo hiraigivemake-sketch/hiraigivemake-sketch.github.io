@@ -56,7 +56,9 @@
   td.cell .wish { position:absolute; left:2px; top:0; font-size:9px; color:var(--sub); font-weight:normal; } td.cell .wish.must { color:var(--ng); font-weight:700; }
   td.cell .mark { position:absolute; right:2px; bottom:1px; width:6px; height:6px; border-radius:50%; } td.cell .mark.block { background:var(--ng); } td.cell .mark.warn { background:#f59e0b; }
   td.cell.blank { color:#d1d5db; }
-  td.cell.hl { animation:hl 2s; } @keyframes hl { 0% { box-shadow:inset 0 0 0 3px var(--accent); } 100% { box-shadow:none; } }
+  td.cell.hl { animation:hl 2s; }
+  body.mode-actual td.cell.changed { outline:2px dashed #b45309; outline-offset:-2px; }
+  body.mode-actual td.cell .act { position:absolute; left:2px; bottom:0; font-size:9px; color:#b45309; font-weight:700; } @keyframes hl { 0% { box-shadow:inset 0 0 0 3px var(--accent); } 100% { box-shadow:none; } }
   td.stat { padding:2px 6px; white-space:nowrap; } td.stat.ng { background:#fee2e2; }
   table.roster tfoot th { position:sticky; left:0; background:#f9fafb; text-align:left; padding:3px 8px; } table.roster tfoot td { padding:3px 2px; background:#fafafa; } table.roster tfoot td.ng { background:#fee2e2; color:var(--ng); font-weight:700; }
   .legend { display:flex; flex-wrap:wrap; gap:6px 14px; padding:8px 12px; font-size:12px; border-top:1px solid var(--line); background:#fafafa; }
@@ -135,6 +137,7 @@
       <button type="button" id="nav-next" title="翌月">›</button>
       <span id="nav-title" class="nav-title"></span>
       <span id="month-status"></span>
+      <div class="seg" id="mode-seg" title="実績モードでは、実際に勤務した種別を入れます。未入力の日は予定どおりです"><button type="button" data-mode="plan">予定</button><button type="button" data-mode="actual">実績</button></div>
     </div>
     <div class="actions" id="actions">
       <button type="button" id="btn-fill" class="primary" title="空欄を自動で埋めます">自動作成</button>
@@ -491,27 +494,36 @@ function entryFor(db, staffId, date) { return db.roster.find(r => r.staffId === 
 function wishFor(db, staffId, date) { return db.wishes.find(w => w.staffId === staffId && w.date === date) || null; }
 function monthOf(db, ym) { return db.months.find(m => m.ym === ym) || createMonth(ym); }
 function isConfirmed(db, ym) { return monthOf(db, ym).status === 'confirmed'; }
-function entryHours(db, r) { return shiftHours(shiftTypeById(db, r.shiftTypeId)); }
-function isWorkEntry(db, r) { const st = shiftTypeById(db, r.shiftTypeId); return !!(st && st.isWork); }
+/* 予定／実績の切替。実績が未入力（null）の日は予定どおりとみなす */
+function effectiveTypeId(r, mode) { return mode === 'actual' && r.actualShiftTypeId ? r.actualShiftTypeId : r.shiftTypeId; }
+function entryHours(db, r, mode) { return shiftHours(shiftTypeById(db, effectiveTypeId(r, mode))); }
+function isWorkEntry(db, r, mode) { const st = shiftTypeById(db, effectiveTypeId(r, mode)); return !!(st && st.isWork); }
+/* 予定と実績が異なるセル。[{ entry, staff, planned, actual }] */
+function actualChanges(db, ym) {
+  return db.roster.filter(r => ymOf(r.date) === ym && r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.staffId.localeCompare(b.staffId)))
+    .map(r => ({ entry: r, staff: staffById(db, r.staffId), planned: shiftTypeById(db, r.shiftTypeId), actual: shiftTypeById(db, r.actualShiftTypeId) }));
+}
 /* その月に在籍する（無効でない）スタッフ */
 function staffInMonth(db, ym) {
   const dates = monthDates(ym);
   return db.staff.filter(s => !s.archived && dates.some(d => staffEmployedOn(s, d)));
 }
-function dayStats(db, date) {
+function dayStats(db, date, mode = 'plan') {
   const entries = db.roster.filter(r => r.date === date);
-  const working = entries.filter(r => isWorkEntry(db, r));
+  const working = entries.filter(r => isWorkEntry(db, r, mode));
   return { date, working: working.length, nurses: working.filter(r => { const s = staffById(db, r.staffId); return s && isNurse(s); }).length, oncall: entries.filter(r => r.oncall).length, workingIds: working.map(r => r.staffId), closed: isClosedDay(db, date) };
 }
 /* スタッフの月集計。所定時間 = 1日あたり所定（週所定 ÷ 勤務曜日数）× その月の勤務曜日のうち休業日でなく在籍している日数。
  * 有給は所定内の扱い（paidHours に 1日あたり所定で加える）。diff は paidHours − target */
-function staffMonthStats(db, staffId, ym) {
+function staffMonthStats(db, staffId, ym, mode = 'plan') {
   const s = staffById(db, staffId);
   const dates = monthDates(ym);
   const entries = db.roster.filter(r => r.staffId === staffId && ymOf(r.date) === ym);
-  const st = { workDays: 0, restDays: 0, ptoDays: 0, oncall: 0, hours: 0, closedWork: 0, blank: 0, perDay: 0, target: 0, paidHours: 0, diff: 0 };
+  const st = { workDays: 0, restDays: 0, ptoDays: 0, oncall: 0, hours: 0, closedWork: 0, blank: 0, perDay: 0, target: 0, paidHours: 0, diff: 0, changed: 0 };
   for (const r of entries) {
-    const t = shiftTypeById(db, r.shiftTypeId);
+    const t = shiftTypeById(db, effectiveTypeId(r, mode));
+    if (mode === 'actual' && r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId) st.changed++;
     if (!t) continue;
     if (t.isWork) { st.workDays++; st.hours += shiftHours(t); if (isClosedDay(db, r.date)) st.closedWork++; }
     else { st.restDays++; if (t.usesPto) st.ptoDays++; }
@@ -528,12 +540,12 @@ function staffMonthStats(db, staffId, ym) {
   return st;
 }
 /* 常勤換算。看護職員と全体。分母は常勤の週所定時間 × 月の日数 / 7 */
-function fte(db, ym) {
+function fte(db, ym, mode = 'plan') {
   const { y, m } = ymParts(ym);
   const base = db.settings.fteWeeklyHours * daysInMonth(y, m) / 7;
   let nurse = 0, total = 0;
   for (const s of staffInMonth(db, ym)) {
-    const h = staffMonthStats(db, s.id, ym).hours;
+    const h = staffMonthStats(db, s.id, ym, mode).hours;
     total += h; if (isNurse(s)) nurse += h;
   }
   return { base: Math.round(base * 10) / 10, nurseFte: Math.round(nurse / base * 100) / 100, totalFte: Math.round(total / base * 100) / 100, nurseHours: Math.round(nurse * 10) / 10, totalHours: Math.round(total * 10) / 10 };
@@ -956,13 +968,13 @@ function shiftsForVisitApp(db, ym) {
 function shiftsCsv(db, ym) { return toCsv([['日付', 'スタッフ', 'staffId', '開始', '終了', '区分']].concat(shiftsForVisitApp(db, ym).map(r => [r.date, r.staff, r.staffId, r.start, r.end, r.kind === 'work' ? '勤務' : '休み']))); }
 function shiftsJson(db, ym) { return JSON.stringify({ source: 'kinmu_hyo', ym, shifts: shiftsForVisitApp(db, ym) }, null, 2); }
 /* 給与・集計用 CSV: スタッフ×日の略号と月集計 */
-function rosterCsv(db, ym) {
+function rosterCsv(db, ym, mode = 'plan') {
   const dates = monthDates(ym);
-  const head = ['スタッフ', '職種', '雇用'].concat(dates.map(d => String(Number(d.slice(8))))).concat(['出勤日数', '休日数', '有給', 'オンコール', '勤務時間', '所定時間', '差']);
+  const head = ['スタッフ', '職種', '雇用', mode === 'actual' ? '実績' : '予定'].concat(dates.map(d => String(Number(d.slice(8))))).concat(['出勤日数', '休日数', '有給', 'オンコール', '勤務時間', '有給込み時間', '所定時間', '差'].concat(mode === 'actual' ? ['予定と異なる日数'] : []));
   const rows = staffInMonth(db, ym).map(s => {
-    const st = staffMonthStats(db, s.id, ym);
-    return [s.name, ENUMS.staffRole[s.role], ENUMS.employment[s.employment]].concat(dates.map(d => { const r = entryFor(db, s.id, d); if (!r) return ''; const t = shiftTypeById(db, r.shiftTypeId); return (t ? t.code : '?') + (r.oncall ? '◎' : ''); }))
-      .concat([st.workDays, st.restDays, st.ptoDays, st.oncall, st.hours, st.target, st.diff]);
+    const st = staffMonthStats(db, s.id, ym, mode);
+    return [s.name, ENUMS.staffRole[s.role], ENUMS.employment[s.employment], mode === 'actual' ? '実績' : '予定'].concat(dates.map(d => { const r = entryFor(db, s.id, d); if (!r) return ''; const t = shiftTypeById(db, effectiveTypeId(r, mode)); return (t ? t.code : '?') + (r.oncall ? '◎' : ''); }))
+      .concat([st.workDays, st.restDays, st.ptoDays, st.oncall, st.hours, st.paidHours, st.target, st.diff].concat(mode === 'actual' ? [st.changed] : []));
   });
   return toCsv([head].concat(rows));
 }
@@ -1056,7 +1068,7 @@ root.RS = {
   genId, nowIso, clone, pad2,
   create: { db: createEmptyDb, shiftType: createShiftType, defaultShiftTypes, staff: createStaff, wish: createWish, entry: createEntry, month: createMonth, holiday: createHoliday },
   validate: { shiftType: validateShiftType, staff: validateStaff, wish: validateWish, entry: validateEntry, month: validateMonth, holiday: validateHoliday, settings: validateSettings, meta: validateMeta, db: validateDb },
-  derive: { staffDisplayName, shiftTypeById, staffById, isNurse, shiftHours, isHoliday, isClosedDay, staffEmployedOn, entryFor, wishFor, monthOf, isConfirmed, entryHours, isWorkEntry, staffInMonth, dayStats, staffMonthStats, fte, consecutiveWorkDays, weeksWithoutRest },
+  derive: { staffDisplayName, shiftTypeById, staffById, isNurse, shiftHours, isHoliday, isClosedDay, staffEmployedOn, entryFor, wishFor, monthOf, isConfirmed, effectiveTypeId, entryHours, isWorkEntry, actualChanges, staffInMonth, dayStats, staffMonthStats, fte, consecutiveWorkDays, weeksWithoutRest },
   rules: { checkEntry, checkDay, checkMonth, autoFill, copyPattern, japaneseHolidays },
   repo: { staff, shiftTypes, roster, wishes, months, holidays, settings: settingsRepo, meta: metaRepo, pushHistory },
   exporters: { shiftsForVisitApp, shiftsCsv, shiftsJson, rosterCsv, csvCell, toCsv },
@@ -1301,6 +1313,29 @@ t('サンプル: 検証に合格し架空名のみ', () => {
   ok(db.months.find(m => m.ym === YM) === undefined || db.months.find(m => m.ym === YM).status === 'draft');
 });
 
+t('実績: 予定どおりが既定、実績入力は確定月でも可、集計とCSVに反映', () => {
+  const db = RS.sample.build(YM);
+  const plan = RS.derive.staffMonthStats(db, 's_sample1', YM), act0 = RS.derive.staffMonthStats(db, 's_sample1', YM, 'actual');
+  eq([act0.workDays, act0.hours, act0.changed], [plan.workDays, plan.hours, 0], '実績未入力なら予定と同じ');
+  const d = db.roster.find(r => r.staffId === 's_sample1' && RS.derive.isWorkEntry(db, r)).date;
+  RS.repo.months.setStatus(db, YM, 'confirmed');
+  RS.repo.roster.setActual(db, 's_sample1', d, 'st_pto');
+  throws(() => RS.repo.roster.setActual(db, 's_sample1', d, 'st_nope'));
+  throws(() => RS.repo.roster.setActual(db, 's_sample1', '2026-11-01', 'st_day'), '勤務のない日には入れられない');
+  const act = RS.derive.staffMonthStats(db, 's_sample1', YM, 'actual');
+  eq([act.workDays, act.ptoDays, act.changed, act.hours], [plan.workDays - 1, plan.ptoDays + 1, 1, plan.hours - 8]);
+  eq(RS.derive.staffMonthStats(db, 's_sample1', YM).workDays, plan.workDays, '予定の集計は変わらない');
+  eq(RS.derive.effectiveTypeId(RS.derive.entryFor(db, 's_sample1', d), 'actual'), 'st_pto'); eq(RS.derive.effectiveTypeId(RS.derive.entryFor(db, 's_sample1', d), 'plan'), 'st_day');
+  const ch = RS.derive.actualChanges(db, YM); eq(ch.length, 1); eq([ch[0].planned.id, ch[0].actual.id], ['st_day', 'st_pto']);
+  eq(RS.derive.dayStats(db, d, 'actual').working, RS.derive.dayStats(db, d).working - 1);
+  ok(RS.derive.fte(db, YM, 'actual').nurseHours < RS.derive.fte(db, YM).nurseHours);
+  const csv = RS.exporters.rosterCsv(db, YM, 'actual').split('\r\n');
+  ok(csv[0].includes('実績') && csv[0].includes('予定と異なる日数'));
+  ok(csv.some(l => l.startsWith('看護 太郎,看護師,常勤,実績')));
+  RS.repo.roster.setActual(db, 's_sample1', d, null);
+  eq(RS.derive.actualChanges(db, YM).length, 0, '実績を消すと予定どおりに戻る');
+  eq(RS.validate.db(db), []);
+});
 function run() { return tests.map(({ name, fn }) => { try { fn(); return { name, ok: true, detail: '' }; } catch (e) { return { name, ok: false, detail: e.message }; } }); }
 root.RS_TESTS = { run, count: tests.length };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1327,11 +1362,11 @@ const WISH_CODE = { off: '休', pto: '有', work: '出', shift: '指', noOncall:
 const ROLE_ORDER = ['NS', 'LPN', 'PT', 'OT', 'ST', 'OTHER'];
 const STAFF_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#4b5563'];
 
-const state = { db: null, load: null, view: 'roster', ym: RS.date.todayStr().slice(0, 7), master: 'staff', masterSearch: '', masterArchived: false, wishStaff: '', output: { type: 'roster', ym: RS.date.todayStr().slice(0, 7), target: '' } };
+const state = { db: null, load: null, view: 'roster', mode: 'plan', ym: RS.date.todayStr().slice(0, 7), master: 'staff', masterSearch: '', masterArchived: false, wishStaff: '', output: { type: 'roster', ym: RS.date.todayStr().slice(0, 7), target: '', mode: 'plan' } };
 
 /* ---------- 基盤 ---------- */
-function loadPrefs() { try { const p = JSON.parse(localStorage.getItem(UI_KEY) || 'null'); if (p && ['roster', 'wishes', 'summary', 'output', 'master', 'data'].includes(p.view)) state.view = p.view; if (p && ['staff', 'shiftTypes', 'holidays', 'settings'].includes(p.master)) state.master = p.master; } catch (_) { /* 既定のまま */ } }
-function savePrefs() { try { localStorage.setItem(UI_KEY, JSON.stringify({ view: state.view, master: state.master })); } catch (_) { /* 無視 */ } }
+function loadPrefs() { try { const p = JSON.parse(localStorage.getItem(UI_KEY) || 'null'); if (p && ['roster', 'wishes', 'summary', 'output', 'master', 'data'].includes(p.view)) state.view = p.view; if (p && ['staff', 'shiftTypes', 'holidays', 'settings'].includes(p.master)) state.master = p.master; if (p && ['plan', 'actual'].includes(p.mode)) state.mode = p.mode; } catch (_) { /* 既定のまま */ } }
+function savePrefs() { try { localStorage.setItem(UI_KEY, JSON.stringify({ view: state.view, master: state.master, mode: state.mode })); } catch (_) { /* 無視 */ } }
 function loadDb() { state.load = RS.store.load(localStorage); state.db = state.load.db; }
 function persist() {
   const r = RS.store.save(state.db, localStorage);
@@ -1398,8 +1433,11 @@ function renderToolbar() {
   $('#nav-title').textContent = ymTitle(state.ym);
   const m = RS.derive.monthOf(db(), state.ym);
   $('#month-status').innerHTML = `<span class="badge ${m.status}">${esc(RS.ENUMS.monthStatus[m.status])}</span>` + (m.wishesLocked ? ' <span class="badge locked">希望締切</span>' : '');
-  const confirmed = m.status === 'confirmed';
-  for (const id of ['btn-fill', 'btn-refill', 'btn-copy']) { $('#' + id).hidden = state.view !== 'roster'; $('#' + id).disabled = confirmed; }
+  const confirmed = m.status === 'confirmed', actual = state.mode === 'actual';
+  document.body.classList.toggle('mode-actual', actual);
+  $('#mode-seg').hidden = !['roster', 'summary'].includes(state.view);
+  $$('#mode-seg button').forEach(b => b.classList.toggle('active', b.dataset.mode === state.mode));
+  for (const id of ['btn-fill', 'btn-refill', 'btn-copy']) { $('#' + id).hidden = state.view !== 'roster' || actual; $('#' + id).disabled = confirmed; }
   $('#btn-check').hidden = state.view === 'wishes';
   $('#btn-confirm').hidden = state.view === 'wishes'; $('#btn-confirm').textContent = confirmed ? '確定を解除' : '確定';
   $('#btn-lock').hidden = state.view !== 'wishes'; $('#btn-lock').textContent = m.wishesLocked ? '希望の受付を再開' : '希望を締め切る';
@@ -1427,30 +1465,45 @@ function renderRoster() {
   const staffList = sortedStaff(RS.derive.staffInMonth(d, ym));
   if (!staffList.length) return `<div class="empty">この月に在籍するスタッフがいません。「マスタ」でスタッフを登録するか、「データ」からサンプルを読み込んでください。</div>`;
   const m = RS.derive.monthOf(d, ym);
-  const banner = m.status === 'confirmed' ? `<div class="banner info">この月は確定済みです。変更するには「確定を解除」を押してください。</div>` : '';
+  const mode = state.mode, actual = mode === 'actual';
+  const banner = actual ? `<div class="banner info">実績モード: セルをクリックして実際に勤務した種別を入れます。未入力の日は予定どおりとして集計します。予定と異なる日は点線で囲みます（${RS.derive.actualChanges(d, ym).length} 日）。</div>`
+    : (m.status === 'confirmed' ? `<div class="banner info">この月は確定済みです。変更するには「確定を解除」を押してください。</div>` : '');
   const S = d.settings;
   const head = `<tr><th class="sticky-col">スタッフ</th>${dates.map(day => `<th class="${dayHeaderCls(day)}" data-date="${day}" title="${esc((d.holidays.find(h => h.date === day) || {}).name || '')}">${Number(day.slice(8))}<small>${DOW[RS.date.dowOf(day)]}</small></th>`).join('')}<th>出勤</th><th>休</th><th>有</th><th>OC</th><th>時間</th><th>所定</th></tr>`;
   const rows = staffList.map(s => {
     const cells = dates.map(day => {
-      const r = RS.derive.entryFor(d, s.id, day), w = RS.derive.wishFor(d, s.id, day), st = r ? stById(r.shiftTypeId) : null;
+      const r = RS.derive.entryFor(d, s.id, day), w = RS.derive.wishFor(d, s.id, day), st = r ? stById(RS.derive.effectiveTypeId(r, mode)) : null;
       const employed = RS.derive.staffEmployedOn(s, day);
       let mark = '', title = '';
-      if (r) { const iss = RS.rules.checkEntry(d, r); if (iss.length) { const blk = iss.some(x => isBlock(x.code)); mark = `<span class="mark ${blk ? 'block' : 'warn'}"></span>`; title = iss.map(x => x.msg).join(' / '); } }
-      const wish = w ? `<span class="wish ${w.strength}" title="${esc(RS.ENUMS.wishKind[w.kind])}">${WISH_CODE[w.kind]}</span>` : '';
+      if (r && !actual) { const iss = RS.rules.checkEntry(d, r); if (iss.length) { const blk = iss.some(x => isBlock(x.code)); mark = `<span class="mark ${blk ? 'block' : 'warn'}"></span>`; title = iss.map(x => x.msg).join(' / '); } }
+      const changed = actual && r && r.actualShiftTypeId && r.actualShiftTypeId !== r.shiftTypeId;
+      if (changed) title = `予定: ${(stById(r.shiftTypeId) || {}).name || '?'} → 実績: ${st ? st.name : '?'}`;
+      const wish = w && !actual ? `<span class="wish ${w.strength}" title="${esc(RS.ENUMS.wishKind[w.kind])}">${WISH_CODE[w.kind]}</span>` : '';
       if (!employed) return `<td class="closed" title="在籍期間外">—</td>`;
-      return `<td class="cell ${dayHeaderCls(day)} ${r ? '' : 'blank'}" data-sid="${esc(s.id)}" data-date="${day}" title="${esc(title)}">${r ? codeSpan(st) : '·'}${r && r.oncall ? '<span class="oc">◎</span>' : ''}${wish}${mark}</td>`;
+      return `<td class="cell ${dayHeaderCls(day)} ${r ? '' : 'blank'} ${changed ? 'changed' : ''}" data-sid="${esc(s.id)}" data-date="${day}" title="${esc(title)}">${r ? codeSpan(st) : '·'}${r && r.oncall ? '<span class="oc">◎</span>' : ''}${changed ? '<span class="act">実</span>' : ''}${wish}${mark}</td>`;
     }).join('');
-    const st = RS.derive.staffMonthStats(d, s.id, ym);
+    const st = RS.derive.staffMonthStats(d, s.id, ym, mode);
     return `<tr><th class="sticky-col"><span class="dot" style="background:${esc(s.color)}"></span>${esc(sName(s))}<small>${esc(RS.ENUMS.staffRole[s.role])}・${esc(RS.ENUMS.employment[s.employment])}${s.canOncall ? '' : '・OC不可'}</small></th>${cells}` +
       `<td class="stat">${st.workDays}</td><td class="stat">${st.restDays}</td><td class="stat">${st.ptoDays}<span class="muted">/${s.ptoBalance}</span></td><td class="stat">${st.oncall}</td><td class="stat ${Math.abs(st.diff) >= 8 && s.employment === 'fulltime' ? 'ng' : ''}">${st.hours}</td><td class="stat muted">${st.target}</td></tr>`;
   }).join('');
-  const footRow = (label, fn) => `<tr><th>${label}</th>${dates.map(day => { const v = fn(RS.derive.dayStats(d, day)); return `<td class="${v.ng ? 'ng' : ''}">${v.text}</td>`; }).join('')}<td colspan="6"></td></tr>`;
+  const footRow = (label, fn) => `<tr><th>${label}</th>${dates.map(day => { const v = fn(RS.derive.dayStats(d, day, mode)); return `<td class="${v.ng ? 'ng' : ''}">${v.text}</td>`; }).join('')}<td colspan="6"></td></tr>`;
   const foot = footRow('出勤', ds => ({ text: ds.working, ng: ds.working < (ds.closed ? S.minTotalClosed : S.minTotal) })) +
     footRow('看護', ds => ({ text: ds.nurses, ng: ds.nurses < (ds.closed ? S.minNursesClosed : S.minNurses) })) +
     footRow('OC', ds => ({ text: ds.oncall, ng: ds.oncall !== S.oncallPerDay }));
   return banner + `<div class="grid-wrap"><table class="roster"><thead>${head}</thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table></div>` + legendHtml();
 }
+function actualPopover(x, y, sid, date) {
+  const d = db(), s = RS.derive.staffById(d, sid), r = RS.derive.entryFor(d, sid, date);
+  if (!r) { openPopover(x, y, `<h4>${esc(sName(s))}　${Number(date.slice(5, 7))}/${Number(date.slice(8))}</h4><p class="muted">予定が入っていないため実績を入れられません。先に予定モードで勤務を入れてください。</p>`); return; }
+  const planned = stById(r.shiftTypeId), cur = r.actualShiftTypeId;
+  const opts = activeShiftTypes().map(t => `<button type="button" class="${(cur || r.shiftTypeId) === t.id ? 'on' : ''}" data-set-actual="${esc(t.id)}">${codeSpan(t)}${esc(t.name)}</button>`).join('');
+  openPopover(x, y, `<h4>${esc(sName(s))}　${Number(date.slice(5, 7))}/${Number(date.slice(8))}（${DOW[RS.date.dowOf(date)]}）の実績</h4><p class="muted" style="margin:0 0 6px">予定: ${planned ? esc(planned.name) : '?'}${r.oncall ? '・オンコール' : ''}${cur ? `　→ 実績: <b>${esc((stById(cur) || {}).name || '?')}</b>` : '　（実績は予定どおり）'}</p><div class="opts">${opts}</div><div class="foot"><button type="button" class="small" data-clear-actual ${cur ? '' : 'disabled'}>予定どおりに戻す</button></div>`);
+  const pop = $('#popover');
+  pop.querySelectorAll('[data-set-actual]').forEach(b => { b.onclick = () => { const id = b.dataset.setActual; closePopover(); commit(() => RS.repo.roster.setActual(d, sid, date, id === r.shiftTypeId ? null : id)); }; });
+  const cl = pop.querySelector('[data-clear-actual]'); if (cl) cl.onclick = () => { closePopover(); commit(() => RS.repo.roster.setActual(d, sid, date, null)); };
+}
 function cellPopover(x, y, sid, date) {
+  if (state.mode === 'actual') { actualPopover(x, y, sid, date); return; }
   const d = db(), s = RS.derive.staffById(d, sid), r = RS.derive.entryFor(d, sid, date), w = RS.derive.wishFor(d, sid, date);
   const confirmed = RS.derive.isConfirmed(d, state.ym);
   const opts = activeShiftTypes().map(t => `<button type="button" class="${r && r.shiftTypeId === t.id ? 'on' : ''}" data-set-shift="${esc(t.id)}" ${confirmed ? 'disabled' : ''}>${codeSpan(t)}${esc(t.name)}</button>`).join('');
@@ -1510,13 +1563,16 @@ function wishPopover(x, y, sid, date) {
 function renderSummary() {
   const d = db(), ym = state.ym, staffList = sortedStaff(RS.derive.staffInMonth(d, ym));
   if (!staffList.length) return `<div class="empty">この月に在籍するスタッフがいません。</div>`;
-  const f = RS.derive.fte(d, ym), issues = RS.rules.checkMonth(d, ym);
+  const mode = state.mode, actual = mode === 'actual';
+  const f = RS.derive.fte(d, ym, mode), issues = RS.rules.checkMonth(d, ym);
   const blocks = issues.filter(i => i.level === 'block').length;
-  const cards = `<div class="cards"><div class="card"><div class="muted">看護職員の常勤換算</div><div class="big ${f.nurseFte < RS.REQUIRED_NURSE_FTE ? 'ng' : ''}">${f.nurseFte}</div><div class="muted">基準 ${RS.REQUIRED_NURSE_FTE}・看護 ${f.nurseHours} 時間</div></div>` +
+  const changes = RS.derive.actualChanges(d, ym);
+  const changesHtml = actual ? `<div class="list-wrap" style="max-height:none"><h3 style="font-size:14px;margin:12px 16px 4px">予定と実績の差異（${changes.length} 日）</h3>${changes.length ? `<table class="list"><thead><tr><th>日</th><th>スタッフ</th><th>予定</th><th>実績</th><th>備考</th></tr></thead><tbody>${changes.map(c => `<tr><td>${Number(c.entry.date.slice(5, 7))}/${Number(c.entry.date.slice(8))}（${DOW[RS.date.dowOf(c.entry.date)]}）</td><td>${esc(c.staff ? sName(c.staff) : '?')}</td><td>${c.planned ? codeSpan(c.planned) + esc(c.planned.name) : '?'}</td><td>${c.actual ? codeSpan(c.actual) + esc(c.actual.name) : '?'}</td><td>${esc(c.entry.note)}</td></tr>`).join('')}</tbody></table>` : '<p class="muted" style="margin:0 16px 12px">実績はすべて予定どおりです。</p>'}</div>` : '';
+  const cards = `<div class="cards"><div class="card"><div class="muted">${actual ? '実績の' : ''}看護職員の常勤換算</div><div class="big ${f.nurseFte < RS.REQUIRED_NURSE_FTE ? 'ng' : ''}">${f.nurseFte}</div><div class="muted">基準 ${RS.REQUIRED_NURSE_FTE}・看護 ${f.nurseHours} 時間</div></div>` +
     `<div class="card"><div class="muted">全体の常勤換算</div><div class="big">${f.totalFte}</div><div class="muted">分母 ${f.base} 時間（週${d.settings.fteWeeklyHours}時間）</div></div>` +
     `<div class="card"><div class="muted">月次チェック</div><div class="big ${blocks ? 'ng' : ''}">${blocks ? `要対応 ${blocks}` : '要対応なし'}</div><div class="muted">注意 ${issues.length - blocks} 件　<button type="button" class="linkish" id="btn-check2">一覧を見る</button></div></div></div>`;
-  const rows = staffList.map(s => { const st = RS.derive.staffMonthStats(d, s.id, ym); return `<tr><td><span class="dot" style="background:${esc(s.color)}"></span>${esc(sName(s))}<div class="muted">${esc(s.name)}</div></td><td>${esc(RS.ENUMS.staffRole[s.role])}</td><td>${esc(RS.ENUMS.employment[s.employment])}</td><td class="num">${st.workDays}</td><td class="num">${st.restDays}</td><td class="num">${st.ptoDays} / ${s.ptoBalance}</td><td class="num">${st.oncall}</td><td class="num">${st.closedWork}</td><td class="num">${st.hours}</td><td class="num">${st.target}</td><td class="num ${Math.abs(st.diff) >= 8 && s.employment === 'fulltime' ? 'ng-text' : ''}">${st.diff > 0 ? '+' : ''}${st.diff}</td><td class="num ${st.blank ? 'warn-text' : ''}">${st.blank}</td></tr>`; }).join('');
-  return cards + `<div class="list-wrap"><table class="list"><thead><tr><th>スタッフ</th><th>職種</th><th>雇用</th><th>出勤</th><th>休</th><th>有給 / 残</th><th>OC</th><th>週末・休業日出勤</th><th>勤務時間</th><th>所定</th><th>差</th><th>未入力</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const rows = staffList.map(s => { const st = RS.derive.staffMonthStats(d, s.id, ym, mode); return `<tr><td><span class="dot" style="background:${esc(s.color)}"></span>${esc(sName(s))}<div class="muted">${esc(s.name)}</div></td><td>${esc(RS.ENUMS.staffRole[s.role])}</td><td>${esc(RS.ENUMS.employment[s.employment])}</td><td class="num">${st.workDays}</td><td class="num">${st.restDays}</td><td class="num ${st.ptoDays > s.ptoBalance ? 'ng-text' : ''}">${st.ptoDays} / ${s.ptoBalance}</td><td class="num">${st.oncall}</td><td class="num">${st.closedWork}</td><td class="num">${st.hours}</td><td class="num">${st.target}</td><td class="num ${Math.abs(st.diff) > st.perDay ? 'ng-text' : ''}">${st.diff > 0 ? '+' : ''}${st.diff}</td>${actual ? `<td class="num ${st.changed ? 'warn-text' : ''}">${st.changed}</td>` : `<td class="num ${st.blank ? 'warn-text' : ''}">${st.blank}</td>`}</tr>`; }).join('');
+  return cards + `<div class="list-wrap"><table class="list"><thead><tr><th>スタッフ</th><th>職種</th><th>雇用</th><th>出勤</th><th>休</th><th>有給 / 残</th><th>OC</th><th>週末・休業日出勤</th><th>勤務時間</th><th>所定</th><th>差</th><th>${actual ? '予定と異なる日' : '未入力'}</th></tr></thead><tbody>${rows}</tbody></table></div>` + changesHtml;
 }
 function openMonthCheck() {
   const d = db(), ym = state.ym, issues = RS.rules.checkMonth(d, ym);
@@ -1546,13 +1602,13 @@ function renderOutput() {
     `<label>対象月<select name="ym">${months.map(m => `<option value="${m}" ${m === o.ym ? 'selected' : ''}>${ymTitle(m)}</option>`).join('')}</select></label>` +
     (o.type === 'personal' ? `<label>スタッフ<select name="target"><option value="">全員</option>${staffList.map(s => `<option value="${esc(s.id)}" ${o.target === s.id ? 'selected' : ''}>${esc(sName(s))}</option>`).join('')}</select></label>` : '') +
     (o.type === 'roster' || o.type === 'personal' ? '<button type="button" class="primary" id="btn-print">印刷</button>' : '') +
-    (o.type === 'payroll' ? '<button type="button" class="primary" id="btn-csv-payroll">CSVを書き出す</button>' : '') +
+    (o.type === 'payroll' ? `<label>集計<select name="mode"><option value="plan" ${o.mode === 'plan' ? 'selected' : ''}>予定</option><option value="actual" ${o.mode === 'actual' ? 'selected' : ''}>実績</option></select></label><button type="button" class="primary" id="btn-csv-payroll">CSVを書き出す</button>` : '') +
     (o.type === 'visit' ? '<button type="button" class="primary" id="btn-csv-visit">CSVを書き出す</button><button type="button" id="btn-json-visit">JSONを書き出す</button>' : '') + '</form>';
   let body;
   if (o.type === 'roster') body = printRoster(o.ym);
   else if (o.type === 'personal') body = printPersonal(o.ym, o.target);
-  else if (o.type === 'payroll') body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} のスタッフ×日の略号と月集計（出勤日数・休日数・有給・オンコール・勤務時間・所定時間・差）を UTF-8（BOM付き）のCSVで保存します。</p><pre class="sample">${esc(RS.exporters.rosterCsv(d, o.ym).replace(/^﻿/, '').split('\r\n').slice(0, 4).join('\n'))}…</pre></div></div>`;
-  else body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} の勤務を、①訪問スケジュールの「スタッフ › 取り込む」で読める形式で保存します。勤務の種別は開始〜終了の時刻、休みと研修は「休み」になります。スタッフは名前と staffId で照合されます。</p><p class="muted">${RS.exporters.shiftsForVisitApp(d, o.ym).length} 行（勤務 ${RS.exporters.shiftsForVisitApp(d, o.ym).filter(r => r.kind === 'work').length}・休み ${RS.exporters.shiftsForVisitApp(d, o.ym).filter(r => r.kind === 'off').length}）</p><pre class="sample">${esc(RS.exporters.shiftsCsv(d, o.ym).replace(/^﻿/, '').split('\r\n').slice(0, 5).join('\n'))}…</pre></div></div>`;
+  else if (o.type === 'payroll') body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} の${o.mode === 'actual' ? '実績（未入力の日は予定どおり）' : '予定'}を、スタッフ×日の略号と月集計（出勤日数・休日数・有給・オンコール・勤務時間・有給込み時間・所定時間・差${o.mode === 'actual' ? '・予定と異なる日数' : ''}）として UTF-8（BOM付き）のCSVで保存します。</p><pre class="sample">${esc(RS.exporters.rosterCsv(d, o.ym, o.mode).replace(/^\uFEFF/, '').split('\r\n').slice(0, 4).join('\n'))}…</pre></div></div>`;
+  else body = `<div class="cards"><div class="card" style="min-width:420px"><p>${ymTitle(o.ym)} の勤務を、①訪問スケジュールの「スタッフ › 取り込む」で読める形式で保存します。勤務の種別は開始〜終了の時刻、休みと研修は「休み」になります。スタッフは名前と staffId で照合されます。</p><p class="muted">${RS.exporters.shiftsForVisitApp(d, o.ym).length} 行（勤務 ${RS.exporters.shiftsForVisitApp(d, o.ym).filter(r => r.kind === 'work').length}・休み ${RS.exporters.shiftsForVisitApp(d, o.ym).filter(r => r.kind === 'off').length}）</p><pre class="sample">${esc(RS.exporters.shiftsCsv(d, o.ym).replace(/^\uFEFF/, '').split('\r\n').slice(0, 5).join('\n'))}…</pre></div></div>`;
   return form + `<div id="print-area">${body}</div>`;
 }
 function printHead(title) { return `<div class="print-head"><h2>${esc(title)}</h2><span>${esc(db().meta.stationName || '')}</span></div>`; }
@@ -1707,6 +1763,7 @@ function renderTests() {
 /* ---------- イベント ---------- */
 function wireEvents() {
   $$('.tabs button').forEach(b => { b.onclick = () => { state.view = b.dataset.view; if (state.view === 'output') state.output.ym = state.ym; closePopover(); render(); }; });
+  $$('#mode-seg button').forEach(b => { b.onclick = () => { state.mode = b.dataset.mode; closePopover(); render(); }; });
   $('#nav-prev').onclick = () => { state.ym = RS.date.addMonths(state.ym, -1); render(); };
   $('#nav-next').onclick = () => { state.ym = RS.date.addMonths(state.ym, 1); render(); };
   $('#nav-today').onclick = () => { state.ym = RS.date.todayStr().slice(0, 7); render(); };
@@ -1725,7 +1782,7 @@ function wireEvents() {
     const wcell = e.target.closest('td.cell[data-wsid]'); if (wcell) { wishPopover(e.clientX, e.clientY, wcell.dataset.wsid, wcell.dataset.date); return; }
     if (e.target.closest('#btn-check2')) { openMonthCheck(); return; }
     if (e.target.closest('#btn-print')) { window.print(); return; }
-    if (e.target.closest('#btn-csv-payroll')) { download(`勤務表_${state.output.ym}.csv`, RS.exporters.rosterCsv(db(), state.output.ym), 'text/csv;charset=utf-8'); toast('書き出しました'); return; }
+    if (e.target.closest('#btn-csv-payroll')) { download(`勤務表_${state.output.mode === 'actual' ? '実績' : '予定'}_${state.output.ym}.csv`, RS.exporters.rosterCsv(db(), state.output.ym, state.output.mode), 'text/csv;charset=utf-8'); toast('書き出しました'); return; }
     if (e.target.closest('#btn-csv-visit')) { download(`勤務データ_${state.output.ym}.csv`, RS.exporters.shiftsCsv(db(), state.output.ym), 'text/csv;charset=utf-8'); toast('書き出しました'); return; }
     if (e.target.closest('#btn-json-visit')) { download(`勤務データ_${state.output.ym}.json`, RS.exporters.shiftsJson(db(), state.output.ym), 'application/json'); toast('書き出しました'); return; }
     const sr = e.target.closest('tr[data-sid]'); if (sr) { openStaffModal(sr.dataset.sid); return; }
@@ -1737,7 +1794,7 @@ function wireEvents() {
   $('#view').addEventListener('change', e => {
     if (e.target.id === 'wish-staff') { state.wishStaff = e.target.value; render(); return; }
     if (e.target.id === 'skip-national') { commit(() => RS.repo.settings.update(db(), { skipNationalHolidays: e.target.checked })); return; }
-    const of = e.target.closest('#output-form'); if (of) { const gv = n => of.elements.namedItem(n); const type = gv('type').value; if (type !== state.output.type) state.output.target = ''; state.output.type = type; state.output.ym = gv('ym').value; if (gv('target')) state.output.target = gv('target').value; render(); }
+    const of = e.target.closest('#output-form'); if (of) { const gv = n => of.elements.namedItem(n); const type = gv('type').value; if (type !== state.output.type) state.output.target = ''; state.output.type = type; state.output.ym = gv('ym').value; if (gv('target')) state.output.target = gv('target').value; if (gv('mode')) state.output.mode = gv('mode').value; render(); }
   });
   $('#view').addEventListener('submit', e => {
     e.preventDefault();
