@@ -552,6 +552,19 @@
       document.addEventListener(ev, function () { interacted = true; }, { once: true, capture: true });
     });
 
+    // ブラウザは「書き込み不可」の欄には自動入力しない。
+    // クリックやタブで触れた瞬間に解除し、ふつうに入力できるようにする。
+    function unlock(el) {
+      if (el.hasAttribute("readonly")) el.removeAttribute("readonly");
+    }
+    document.addEventListener("pointerdown", function (e) {
+      var el = e.target.closest && e.target.closest("input[readonly]");
+      if (el) unlock(el);
+    }, true);
+    document.addEventListener("focusin", function (e) {
+      if (e.target && e.target.matches && e.target.matches("input[readonly]")) unlock(e.target);
+    }, true);
+
     fields.forEach(function (el) {
       el.setAttribute("autocomplete", "off");
       el.setAttribute("autocorrect", "off");

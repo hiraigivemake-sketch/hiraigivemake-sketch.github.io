@@ -381,7 +381,7 @@ def field_text(path: str, key: str, value, long: bool = False) -> str:
             f'<textarea data-path="{esc(path)}" rows="{rows}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{esc(value)}</textarea>'
         )
     else:
-        control = f'<input type="text" data-path="{esc(path)}" value="{esc(value)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
+        control = f'<input type="text" data-path="{esc(path)}" value="{esc(value)}" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
     hint = ""
     if isinstance(value, str) and "<br>" in value:
         hint = '<p class="field__hint">&lt;br&gt; と書いたところで改行されます。</p>'
@@ -819,7 +819,7 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
         else:
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
-                f'<input type="text" data-path="meta.{key}" value="{esc(value)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
+                f'<input type="text" data-path="meta.{key}" value="{esc(value)}" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
             )
 
     title = "新しい記事" if is_new else "記事の編集"
