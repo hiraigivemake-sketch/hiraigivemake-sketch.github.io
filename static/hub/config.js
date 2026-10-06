@@ -28,6 +28,15 @@ window.HUB_CONFIG = {
   title: "クリケア 業務ハブ",
   subtitle: "やりたいことを選ぶか、言葉で探してください",
 
+  // ---- 新着のお知らせ（Slack・公式LINE） ------------------------------
+  // 設定のしかたは tools/hub_notify.gs の冒頭に書いてあります。
+  // endpoint が空のあいだは、お知らせの機能は画面に出ません。
+  notify: {
+    endpoint: "",          // Apps Script の「ウェブアプリのURL」（…/exec）
+    key: "",               // Apps Script の HUB_KEY と同じ文字
+    intervalSec: 60,       // 何秒ごとに確認するか
+  },
+
   // ---- アプリ一覧（色とトップページ） ------------------------------------
   apps: {
     slack: {

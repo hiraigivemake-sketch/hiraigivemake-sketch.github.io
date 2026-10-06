@@ -126,6 +126,26 @@
   .dest .note { font-size: 12px; color: var(--muted); }
   .dest .arrow { margin-left: auto; color: var(--muted); font-size: 18px; }
 
+  /* 新着のお知らせ */
+  .notify {
+    display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 4px 0 2px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--card);
+    font-size: 13px; box-shadow: var(--shadow);
+  }
+  .notify.show { display: flex; }
+  .notify .st { color: var(--muted); flex: 1 1 auto; min-width: 0; }
+  .notify button {
+    border: 0; border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 700;
+    background: var(--accent-soft); color: var(--accent); cursor: pointer;
+  }
+  .notify button.on { background: var(--accent); color: #fff; }
+  .dest .new {
+    flex: 0 0 auto; margin-left: auto;
+    background: #e03131; color: #fff; font-size: 11px; font-weight: 800;
+    padding: 3px 8px; border-radius: 999px; letter-spacing: .04em;
+  }
+  .dest.has-new { border-color: #e03131; }
   .empty {
     padding: 18px 14px; border-radius: 14px;
     background: var(--card); border: 1px dashed var(--line);
@@ -149,6 +169,12 @@
       <button type="submit" aria-label="開く">→</button>
     </form>
     <div class="hint" id="hint">Enter（決定）で、いちばん近い行き先をそのまま開きます</div>
+  </div>
+
+  <div class="notify" id="notify">
+    <span>🔔</span>
+    <span class="st" id="notify-st">Slack・公式LINE の新着を、このページを開いているあいだ知らせます</span>
+    <button type="button" id="notify-btn">お知らせをオンにする</button>
   </div>
 
   <div class="cats" id="cats"></div>
@@ -178,6 +204,7 @@
   var apps = C.apps || {};
   var cats = C.categories || [];
   var dests = (C.destinations || []).map(function (d, i) { d._i = i; return d; });
+  var unseen = {};             // 新着があるもの { "slack|業務連絡": {at: 時刻}, "line": {...} }
 
   document.getElementById('title').textContent = C.title || '業務ハブ';
   document.getElementById('subtitle').textContent = C.subtitle || '';
@@ -232,7 +259,12 @@
       '<span class="txt"><div class="lbl">' + esc(d.label) + '</div>' +
       (sub ? '<div class="app">' + sub + '</div>' : '') + '</span>' +
       '<span class="arrow">›</span>';
-    a.addEventListener('click', function (e) { e.preventDefault(); open(d); });
+    var k = notifyKey(d);
+    if (k && unseen[k]) {
+      a.classList.add('has-new');
+      a.querySelector('.arrow').outerHTML = '<span class="new">新着</span>';
+    }
+    a.addEventListener('click', function (e) { e.preventDefault(); if (k) markSeen(k); open(d); });
     return a;
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -336,6 +368,126 @@
   fill(document.getElementById('apps'), Object.keys(apps).map(function (key) {
     return { app: key, label: apps[key].name, url: apps[key].home, keywords: [] };
   }));
+
+  // ---- 新着のお知らせ（Slack・公式LINE） ------------------------------
+  // 仕組み：Apps Script（tools/hub_notify.gs）が「最後のメッセージの時刻」を持っていて、
+  // このページが定期的に読みに行く。前回見た時刻より新しければ「新着」と知らせる。
+  var N = C.notify || {};
+  var SEEN_KEY = 'hub-seen', ON_KEY = 'hub-notify-on';
+  function notifyKey(d) {
+    if (d.app === 'slack') return 'slack|' + d.label;
+    if (d.app === 'line') return 'line';
+    return null;
+  }
+  function getSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch (e) { return {}; } }
+  function setSeen(o) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(o)); } catch (e) {} }
+  function isOn() { try { return localStorage.getItem(ON_KEY) === '1'; } catch (e) { return false; } }
+  function setOn(v) { try { localStorage.setItem(ON_KEY, v ? '1' : '0'); } catch (e) {} }
+
+  function rerender() {
+    if (current) showCategory(current);
+    else if (q.value.trim()) q.dispatchEvent(new Event('input'));
+    renderRecent();
+    var anyNew = Object.keys(unseen).some(function (k) { return unseen[k]; });
+    document.title = (anyNew ? '🔴 ' : '') + (C.title || '業務ハブ');
+  }
+  function markSeen(k) {
+    if (!unseen[k]) return;
+    var seen = getSeen(); seen[k] = unseen[k].at; setSeen(seen);
+    delete unseen[k];
+    rerender();
+  }
+
+  function fetchState() {
+    var url = N.endpoint + (N.endpoint.indexOf('?') >= 0 ? '&' : '?') + 'key=' + encodeURIComponent(N.key || '') + '&_=' + Date.now();
+    return fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); });
+  }
+  // サーバーの状態を { キー: 時刻 } に平らにする
+  function flatten(st) {
+    var out = {};
+    Object.keys(st.slack || {}).forEach(function (label) { var v = st.slack[label]; if (v && v.at) out['slack|' + label] = v.at; });
+    if (st.line && st.line.at) out['line'] = st.line.at;
+    return out;
+  }
+  function labelOf(k) {
+    if (k === 'line') return '公式LINE';
+    return 'Slack ' + k.split('|')[1];
+  }
+  function destOf(k) {
+    return dests.filter(function (d) { return notifyKey(d) === k; })[0];
+  }
+  function showNotification(k) {
+    var d = destOf(k);
+    var title = labelOf(k) + ' に新着メッセージ';
+    var opt = { body: 'タップして開く', tag: 'hub-' + k, renotify: true, data: { url: d ? urlOf(d) : location.href } };
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(function (reg) { return reg.showNotification(title, opt); })
+        .catch(function () { try { new Notification(title, opt); } catch (e) {} });
+    } else {
+      try { var n = new Notification(title, opt); n.onclick = function () { window.open(opt.data.url, '_blank'); }; } catch (e) {}
+    }
+  }
+
+  var pollTimer = null, lastCheck = null;
+  function poll(baseline) {
+    if (!N.endpoint) return;
+    fetchState().then(function (st) {
+      if (st.error) throw new Error(st.error);
+      var now = flatten(st), seen = getSeen(), changed = false;
+      if (baseline) {
+        // オンにした瞬間は、いま届いているものを「見た」扱いにして、ここから後を知らせる
+        Object.keys(now).forEach(function (k) { if (!seen[k]) seen[k] = now[k]; });
+        setSeen(seen);
+      }
+      Object.keys(now).forEach(function (k) {
+        if (now[k] > (seen[k] || 0) && !(unseen[k] && unseen[k].at === now[k])) {
+          unseen[k] = { at: now[k] };
+          changed = true;
+          showNotification(k);
+        }
+      });
+      lastCheck = new Date();
+      status('最終確認 ' + lastCheck.toTimeString().slice(0, 5) + (Object.keys(unseen).length ? '　新着あり' : '　新着なし'));
+      if (changed) rerender();
+    }).catch(function (e) {
+      status('確認できませんでした（' + (e && e.message ? e.message : '通信エラー') + '）。設定を見直してください');
+    });
+  }
+  function status(t) { document.getElementById('notify-st').textContent = t; }
+
+  function startPolling(baseline) {
+    stopPolling();
+    poll(baseline);
+    pollTimer = setInterval(function () { if (document.visibilityState !== 'hidden') poll(false); }, Math.max(15, N.intervalSec || 60) * 1000);
+  }
+  function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+  document.addEventListener('visibilitychange', function () { if (isOn() && document.visibilityState === 'visible' && N.endpoint) poll(false); });
+
+  var nbar = document.getElementById('notify'), nbtn = document.getElementById('notify-btn');
+  function paintButton() {
+    var on = isOn();
+    nbtn.textContent = on ? 'お知らせ：オン' : 'お知らせをオンにする';
+    nbtn.classList.toggle('on', on);
+  }
+  if (N.endpoint) {
+    nbar.classList.add('show');
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    }
+    nbtn.addEventListener('click', function () {
+      if (isOn()) { setOn(false); stopPolling(); unseen = {}; paintButton(); status('お知らせを止めました'); rerender(); return; }
+      var go = function () { setOn(true); paintButton(); status('確認中…'); startPolling(true); };
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(go, go);
+      } else { go(); }
+      if ('Notification' in window && Notification.permission === 'denied') {
+        status('ブラウザの通知が許可されていません。画面内の「新着」表示だけ行います');
+      }
+    });
+    paintButton();
+    if (isOn()) { status('確認中…'); startPolling(false); }
+  }
 
   // ---- 「?q=シフト」の形でも開ける（ブックマークや他のページから呼ぶ用）
   var m = location.search.match(/[?&]q=([^&]+)/);
