@@ -110,7 +110,8 @@ def main() -> None:
         print()
 
     # 3) 受け取った内容もあわせて点検する
-    python_run("build.py")
+    # 送る前の点検は、公開サイトと同じ中身で行う
+    python_run("build.py", "--public")
     checked = python_run("tools/check.py")
     if checked.returncode != 0:
         bye("点検で問題が見つかりました。直してからもう一度実行してください。\n"
@@ -128,6 +129,9 @@ def main() -> None:
             "GitHub Desktop を開いて「Push origin」を押してみてください。\n"
             "記録はすでに済んでいるので、内容が失われることはありません。\n\n"
             + (pushed.stderr or ""))
+
+    # 手元の表示は、公開予定の記事も見える状態に戻しておく
+    python_run("build.py")
 
     print()
     print("送信しました。1〜2分でホームページに反映されます。")

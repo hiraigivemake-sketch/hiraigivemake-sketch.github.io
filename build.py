@@ -648,9 +648,13 @@ def build_sitemap(site: dict, urls: list[str]) -> str:
 
 
 def main() -> None:
-    stats = build()
+    # 公開サイトを作るのは GitHub 上だけ。手元では、公開予定の記事も見えるように作る
+    # （--public を付けると、手元でも公開サイトと同じものを作れる）。
+    public = "--public" in sys.argv or os.environ.get("GITHUB_ACTIONS") == "true"
+    stats = build(include_future=not public)
+    kind = "公開サイト向け" if public else "手元で確認する用（公開予定の記事も含む）"
     print(
-        f"✅ ビルド完了  ページ {stats['pages']}件 / "
+        f"✅ ビルド完了［{kind}］  ページ {stats['pages']}件 / "
         f"ブログ {stats['blog']}件 / 採用 {stats['recruit']}件  → {DIST}"
     )
     if "--serve" in sys.argv:
