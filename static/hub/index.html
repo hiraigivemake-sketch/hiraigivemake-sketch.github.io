@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ed7300">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="業務ハブ">
+<title>業務ハブ</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-180.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #faf7f2;
+    --card: #ffffff;
+    --ink: #2b2420;
+    --muted: #7a6f68;
+    --line: #e8e0d6;
+    --accent: #ed7300;
+    --accent-soft: #fff1e3;
+    --shadow: 0 1px 2px rgba(50, 30, 10, .06), 0 4px 14px rgba(50, 30, 10, .06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", "Noto Sans JP", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header { text-align: center; margin: 8px 0 18px; }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  header p  { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+
+  /* 検索欄 */
+  .search {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding: 6px 0 10px;
+  }
+  .search form { position: relative; }
+  .search input {
+    width: 100%;
+    font-size: 17px;
+    padding: 14px 48px 14px 16px;
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--ink);
+    outline: none;
+    box-shadow: var(--shadow);
+    -webkit-appearance: none;
+  }
+  .search input:focus { border-color: var(--accent); }
+  .search button {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border: 0; border-radius: 10px;
+    background: var(--accent); color: #fff; font-size: 18px; cursor: pointer;
+  }
+  .hint { font-size: 12px; color: var(--muted); margin: 8px 2px 0; }
+
+  /* トップボタン */
+  .cats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 14px 0 6px;
+  }
+  @media (min-width: 560px) { .cats { grid-template-columns: repeat(3, 1fr); } }
+  .cat {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    min-height: 92px;
+    padding: 12px 8px;
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    background: var(--card);
+    color: var(--ink);
+    font-size: 15px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cat .ic { font-size: 26px; line-height: 1; }
+  .cat .sub { font-size: 11px; font-weight: 500; color: var(--muted); }
+  .cat:active { transform: scale(.97); }
+  .cat.on { border-color: var(--accent); background: var(--accent-soft); }
+
+  /* 行き先カード */
+  section h2 {
+    font-size: 13px; color: var(--muted); font-weight: 600;
+    margin: 20px 2px 8px; letter-spacing: .04em;
+  }
+  .list { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  @media (min-width: 560px) { .list { grid-template-columns: repeat(2, 1fr); } }
+  .dest {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--ink);
+    text-decoration: none;
+    box-shadow: var(--shadow);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dest:active { transform: scale(.985); }
+  .dest .badge {
+    flex: 0 0 auto;
+    min-width: 44px; height: 44px; padding: 0 8px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .02em;
+    text-align: center; line-height: 1.1;
+  }
+  .dest .txt { min-width: 0; }
+  .dest .lbl { font-weight: 700; font-size: 15px; }
+  .dest .app { font-size: 12px; color: var(--muted); }
+  .dest .note { font-size: 12px; color: var(--muted); }
+  .dest .arrow { margin-left: auto; color: var(--muted); font-size: 18px; }
+
+  .empty {
+    padding: 18px 14px; border-radius: 14px;
+    background: var(--card); border: 1px dashed var(--line);
+    color: var(--muted); font-size: 14px;
+  }
+  .foot { margin-top: 36px; text-align: center; font-size: 11px; color: var(--muted); }
+  .foot a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title">業務ハブ</h1>
+    <p id="subtitle"></p>
+  </header>
+
+  <div class="search">
+    <form id="form" autocomplete="off">
+      <input id="q" type="search" inputmode="search" enterkeyhint="go"
+             placeholder="やりたいことを入力（例：シフト、利用者、書類）" aria-label="やりたいこと">
+      <button type="submit" aria-label="開く">→</button>
+    </form>
+    <div class="hint" id="hint">Enter（決定）で、いちばん近い行き先をそのまま開きます</div>
+  </div>
+
+  <div class="cats" id="cats"></div>
+
+  <section id="results">
+    <h2 id="results-title"></h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section id="recent-sec" hidden>
+    <h2>最近開いたもの</h2>
+    <div class="list" id="recent"></div>
+  </section>
+
+  <section id="apps-sec">
+    <h2>アプリのトップへ</h2>
+    <div class="list" id="apps"></div>
+  </section>
+
+  <p class="foot">行き先の追加・変更は hub/config.js を編集します</p>
+</div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  var C = window.HUB_CONFIG || {};
+  var apps = C.apps || {};
+  var cats = C.categories || [];
+  var dests = (C.destinations || []).map(function (d, i) { d._i = i; return d; });
+
+  document.getElementById('title').textContent = C.title || '業務ハブ';
+  document.getElementById('subtitle').textContent = C.subtitle || '';
+  document.title = C.title || '業務ハブ';
+
+  // ---- 文字の正規化（ひらがな・カタカナ・全角半角・大文字小文字をそろえる）
+  function norm(s) {
+    s = String(s || '').normalize('NFKC').toLowerCase();
+    s = s.replace(/[ァ-ヶ]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0x60); });
+    return s.replace(/[\s　・、。,.!?！？「」『』（）()\-ー]/g, '');
+  }
+
+  // ---- 行き先の URL を決める
+  function urlOf(d) {
+    var app = apps[d.app] || {};
+    if (d.url) return d.url;
+    if (typeof app.byName === 'function') return app.byName(d.label);
+    return app.home || '#';
+  }
+
+  // ---- 最近開いたもの（この端末だけに記録。失敗しても気にしない）
+  var RKEY = 'hub-recent';
+  function getRecent() { try { return JSON.parse(localStorage.getItem(RKEY) || '[]'); } catch (e) { return []; } }
+  function pushRecent(d) {
+    try {
+      var r = getRecent().filter(function (k) { return k !== d.app + '|' + d.label; });
+      r.unshift(d.app + '|' + d.label);
+      localStorage.setItem(RKEY, JSON.stringify(r.slice(0, 4)));
+    } catch (e) {}
+  }
+
+  // ---- 開く
+  function open(d) {
+    pushRecent(d);
+    var url = urlOf(d);
+    var w = window.open(url, '_blank', 'noopener');
+    if (!w) location.href = url;
+    renderRecent();
+  }
+
+  // ---- カード生成
+  function card(d) {
+    var app = apps[d.app] || { name: d.app, color: '#888' };
+    var sub = (d.label === app.name ? '' : esc(app.name)) + (d.note ? (d.label === app.name ? '' : '　') + esc(d.note) : '');
+    var a = document.createElement('a');
+    a.className = 'dest';
+    a.href = urlOf(d);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML =
+      '<span class="badge" style="background:' + app.color + '">' + esc(app.name) + '</span>' +
+      '<span class="txt"><div class="lbl">' + esc(d.label) + '</div>' +
+      (sub ? '<div class="app">' + sub + '</div>' : '') + '</span>' +
+      '<span class="arrow">›</span>';
+    a.addEventListener('click', function (e) { e.preventDefault(); open(d); });
+    return a;
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function fill(el, items) {
+    el.innerHTML = '';
+    items.forEach(function (d) { el.appendChild(card(d)); });
+  }
+
+  // ---- トップボタン
+  var catsEl = document.getElementById('cats');
+  var current = null;
+  cats.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cat';
+    b.dataset.id = c.id;
+    b.innerHTML = '<span class="ic">' + (c.icon || '') + '</span><span>' + esc(c.label) + '</span>' +
+                  (c.sub ? '<span class="sub">' + esc(c.sub) + '</span>' : '');
+    b.addEventListener('click', function () {
+      document.getElementById('q').value = '';
+      showCategory(c.id === current ? null : c.id);
+    });
+    catsEl.appendChild(b);
+  });
+
+  function showCategory(id) {
+    current = id;
+    Array.prototype.forEach.call(catsEl.children, function (b) { b.classList.toggle('on', b.dataset.id === id); });
+    var title = document.getElementById('results-title');
+    var list = document.getElementById('list');
+    if (!id) { title.textContent = ''; list.innerHTML = ''; return; }
+    var c = cats.filter(function (x) { return x.id === id; })[0];
+    title.textContent = c ? c.label : '';
+    fill(list, dests.filter(function (d) { return (d.categories || []).indexOf(id) >= 0; }));
+    title.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---- 検索
+  function search(q) {
+    var nq = norm(q);
+    if (!nq) return [];
+    var catLabel = {};
+    cats.forEach(function (c) { catLabel[c.id] = c; });
+    return dests.map(function (d) {
+      var score = 0;
+      var app = apps[d.app] || {};
+      var words = [d.label, app.name].concat(d.keywords || []);
+      (d.categories || []).forEach(function (cid) {
+        var c = catLabel[cid];
+        if (c) words = words.concat([c.label], c.keywords || []);
+      });
+      words.forEach(function (w) {
+        var nw = norm(w);
+        if (!nw) return;
+        if (nq === nw) score += nw.length * 3;
+        else if (nq.indexOf(nw) >= 0) score += nw.length * 2;
+        else if (nw.indexOf(nq) >= 0) score += nq.length;
+      });
+      return { d: d, score: score };
+    }).filter(function (r) { return r.score > 0; })
+      .sort(function (a, b) { return b.score - a.score || a.d._i - b.d._i; })
+      .map(function (r) { return r.d; });
+  }
+
+  var q = document.getElementById('q');
+  var timer = null;
+  q.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var val = q.value.trim();
+      if (!val) { showCategory(null); return; }
+      current = null;
+      Array.prototype.forEach.call(catsEl.children, function (b) { b.classList.remove('on'); });
+      var hits = search(val);
+      var title = document.getElementById('results-title');
+      var list = document.getElementById('list');
+      title.textContent = '「' + val + '」の行き先';
+      if (hits.length) fill(list, hits);
+      else list.innerHTML = '<div class="empty">見つかりませんでした。下の「アプリのトップへ」から開くか、別の言葉で試してください。</div>';
+    }, 120);
+  });
+  document.getElementById('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var hits = search(q.value.trim());
+    if (hits.length) open(hits[0]);
+  });
+
+  // ---- 最近・アプリのトップ
+  function renderRecent() {
+    var keys = getRecent();
+    var sec = document.getElementById('recent-sec');
+    var items = keys.map(function (k) {
+      return dests.filter(function (d) { return d.app + '|' + d.label === k; })[0];
+    }).filter(Boolean);
+    sec.hidden = !items.length;
+    fill(document.getElementById('recent'), items);
+  }
+  renderRecent();
+
+  fill(document.getElementById('apps'), Object.keys(apps).map(function (key) {
+    return { app: key, label: apps[key].name, url: apps[key].home, keywords: [] };
+  }));
+
+  // ---- 「?q=シフト」の形でも開ける（ブックマークや他のページから呼ぶ用）
+  var m = location.search.match(/[?&]q=([^&]+)/);
+  if (m) { q.value = decodeURIComponent(m[1].replace(/\+/g, ' ')); q.dispatchEvent(new Event('input')); }
+})();
+</script>
+</body>
+</html>
