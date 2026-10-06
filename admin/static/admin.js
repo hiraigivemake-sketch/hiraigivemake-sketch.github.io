@@ -535,6 +535,56 @@
     });
   }
 
+  /* --------------------------- ブラウザの自動入力から入力欄を守る */
+  // ブラウザは過去の入力を、別の欄にも勝手に入れてくることがある。
+  // 画面を開いた直後に入っていたら、もとの内容に戻す。
+  // 人が一度でも操作したあとは、何もしない（打った内容を消さないため）。
+  (function guardAutofill() {
+    var kinds = "text,search,url,email,tel,number,date,time,month,week";
+    var sel = kinds.split(",").map(function (t) { return 'input[type=' + t + ']'; }).join(",") +
+              ",input:not([type]),textarea";
+    var fields = [].slice.call(document.querySelectorAll(sel))
+      .filter(function (el) { return el.type !== "hidden" && !el.readOnly; });
+    if (!fields.length) return;
+
+    var interacted = false;
+    ["pointerdown", "keydown"].forEach(function (ev) {
+      document.addEventListener(ev, function () { interacted = true; }, { once: true, capture: true });
+    });
+
+    fields.forEach(function (el) {
+      el.setAttribute("autocomplete", "off");
+      el.setAttribute("autocorrect", "off");
+      el.setAttribute("autocapitalize", "off");
+      el.setAttribute("spellcheck", "false");
+      // 欄の名前を毎回変え、ブラウザが前回の入力と結び付けられないようにする
+      if (!el.name) el.name = "f-" + Math.random().toString(36).slice(2, 10);
+      el.__origin = el.defaultValue;      // サーバーが入れた、本来の内容
+      el.__touched = false;
+
+      // beforeinput は、人が打つ・貼る・日本語変換する場合には必ず出るが、
+      // ブラウザの自動入力では出ない。これで確実に見分けられる。
+      ["beforeinput", "keydown", "paste", "cut", "drop"].forEach(function (ev) {
+        el.addEventListener(ev, function () { el.__touched = true; });
+      });
+      el.addEventListener("input", function () {
+        if (!el.__touched && !interacted && el.value !== el.__origin) {
+          el.value = el.__origin;          // 勝手に入った文字を打ち消す
+        }
+      });
+    });
+
+    function restore() {
+      if (interacted) return;
+      fields.forEach(function (el) {
+        if (!el.__touched && el.value !== el.__origin) el.value = el.__origin;
+      });
+    }
+    [0, 30, 100, 250, 500, 900, 1500].forEach(function (ms) { setTimeout(restore, ms); });
+    window.addEventListener("load", restore);
+    window.addEventListener("pageshow", restore);
+  })();
+
   /* ------------------------------------------------------ 保存 */
   function buildTree() {
     var root = {};

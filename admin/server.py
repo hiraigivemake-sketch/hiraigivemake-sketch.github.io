@@ -333,7 +333,7 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
       <button class="btn" type="button" id="pickLib" hidden>画像ライブラリに戻る</button>
       <button class="btn btn--ghost" type="button" id="pickClose">閉じる</button>
     </div>
-    <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む" autocomplete="off"></div>
+    <div class="modal__search"><input type="search" id="pickSearch" placeholder="ファイル名で絞り込む" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
     <div class="modal__chosen" id="chosenBar" hidden>
       <button class="btn btn--primary" type="button" id="chosenGo">選んだ写真を入れる（<span id="chosenCount">0</span>枚）</button>
       <button class="btn" type="button" id="chosenSave">パソコンに保存</button>
@@ -378,10 +378,10 @@ def field_text(path: str, key: str, value, long: bool = False) -> str:
     if long or L.is_long(key) or (isinstance(value, str) and (len(value) > 70 or "\n" in value)):
         rows = max(3, min(18, str(value).count("\n") + 3))
         control = (
-            f'<textarea data-path="{esc(path)}" rows="{rows}">{esc(value)}</textarea>'
+            f'<textarea data-path="{esc(path)}" rows="{rows}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{esc(value)}</textarea>'
         )
     else:
-        control = f'<input type="text" data-path="{esc(path)}" value="{esc(value)}">'
+        control = f'<input type="text" data-path="{esc(path)}" value="{esc(value)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
     hint = ""
     if isinstance(value, str) and "<br>" in value:
         hint = '<p class="field__hint">&lt;br&gt; と書いたところで改行されます。</p>'
@@ -394,7 +394,7 @@ def field_rich(path: str, key: str, simple: str) -> str:
     return f'''
 <div class="field">
   <label class="field__label">{esc(L.label_for(key))}</label>
-  <textarea data-path="{esc(path)}" data-rich="1" rows="{rows}">{esc(simple)}</textarea>
+  <textarea data-path="{esc(path)}" data-rich="1" rows="{rows}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{esc(simple)}</textarea>
   <p class="field__hint">
     改行したいところで <b>Enter</b> を押してください。<br>
     オレンジ色にしたい文字は <code>[[ ]]</code> で囲みます（例：<code>[[確かな看護]]と</code>）。
@@ -413,7 +413,7 @@ def field_bool(path: str, key: str, value) -> str:
 def field_number(path: str, key: str, value) -> str:
     return (
         f'<div class="field"><label class="field__label">{esc(L.label_for(key))}</label>'
-        f'<input type="number" data-path="{esc(path)}" value="{esc(value)}"></div>'
+        f'<input type="number" data-path="{esc(path)}" value="{esc(value)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
     )
 
 
@@ -470,7 +470,7 @@ def field_lines(path: str, key: str, values: list, show_label: bool = True) -> s
     return f"""
 <div class="field">
   {label}
-  <textarea data-path="{esc(path)}" data-lines="1" rows="{max(3, min(14, len(values) + 1))}">{esc(chr(10).join(str(v) for v in values))}</textarea>
+  <textarea data-path="{esc(path)}" data-lines="1" rows="{max(3, min(14, len(values) + 1))}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{esc(chr(10).join(str(v) for v in values))}</textarea>
   <p class="field__hint">1行に1件ずつ書きます。行を増やせば項目が増えます。</p>
 </div>"""
 
@@ -802,24 +802,24 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
         elif key == "date":
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
-                f'<input type="date" data-path="meta.date" value="{esc(builder.clean_date(value))}">'
+                f'<input type="date" data-path="meta.date" value="{esc(builder.clean_date(value))}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
                 f'</div>'
             )
         elif key == "time":
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
-                f'<input type="time" data-path="meta.time" value="{esc(builder.clean_time(value))}">'
+                f'<input type="time" data-path="meta.time" value="{esc(builder.clean_time(value))}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
                 f'<p class="field__hint">空のままなら、その日の 0:00 に公開されます。</p></div>'
             )
         elif key == "description":
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
-                f'<textarea data-path="meta.{key}" rows="2">{esc(value)}</textarea></div>'
+                f'<textarea data-path="meta.{key}" rows="2" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{esc(value)}</textarea></div>'
             )
         else:
             fields.append(
                 f'<div class="field"><label class="field__label">{esc(label)}</label>'
-                f'<input type="text" data-path="meta.{key}" value="{esc(value)}"></div>'
+                f'<input type="text" data-path="meta.{key}" value="{esc(value)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>'
             )
 
     title = "新しい記事" if is_new else "記事の編集"
@@ -868,7 +868,7 @@ def post_form(kind: str, filename: str | None, meta: dict, body: str) -> str:
         </button>
         <span style="font-size:12px;color:#6e5a47">カーソルの位置に写真が入ります</span>
       </div>
-      <textarea id="bodyArea" class="tall" data-path="body">{esc(body)}</textarea>
+      <textarea id="bodyArea" class="tall" data-path="body" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{esc(body)}</textarea>
       <p class="field__hint">
         改行はそのまま改行として表示されます。<br>
         見出しは行頭に <code>## </code>、箇条書きは <code>- </code>、リンクは <code>[表示する文字](URL)</code> と書きます。
