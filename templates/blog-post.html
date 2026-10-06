@@ -12,6 +12,7 @@
 <section class="section section--bg section--tight section--post">
   <div class="container">
     <article class="article">
+      {{# post.is_scheduled }}<p class="wait-note">この記事はまだ公開されていません。{{ post.date_display }}{{# post.time }} {{ post.time }}{{/ post.time }} に自動で公開されます。</p>{{/ post.is_scheduled }}
       <div class="article__body">{{{ post.body_html }}}</div>
       <nav class="article-nav">
         {{# prev_post }}<a class="btn" href="{{ url }}">← 前の記事</a>{{/ prev_post }}
