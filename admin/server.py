@@ -148,16 +148,23 @@ def ig_get(path: str, **params) -> dict:
 # 複数枚投稿（カルーセル）は children で中の写真も取れる
 IG_FIELDS_PICKER = ig.FIELDS + ",children{id,media_type,media_url,thumbnail_url}"
 IG_FIELDS_ONE = "id,media_type,media_url,thumbnail_url"
-IG_MAX_TILES = 60
+IG_PAGE_SIZE = 24
 
 
-def ig_recent(limit: int = 24) -> list:
-    """最近の投稿を写真つきで一覧にする。複数枚投稿は1枚ずつ並べる。"""
+def ig_recent(limit: int = IG_PAGE_SIZE, after: str = "") -> dict:
+    """投稿を写真つきで一覧にする。複数枚投稿は1枚ずつ並べる。
+
+    after に前回の「続きの印」を渡すと、その続き（より前の投稿）を返す。
+    返り値の next が空なら、それより前の投稿はない。
+    """
+    params = {"limit": limit}
+    if after:
+        params["after"] = after
     try:
-        data = ig_get("me/media", fields=IG_FIELDS_PICKER, limit=limit)
+        data = ig_get("me/media", fields=IG_FIELDS_PICKER, **params)
     except Exception:
         # children が使えない場合でも、1枚目だけは出せるようにする
-        data = ig_get("me/media", fields=ig.FIELDS, limit=limit)
+        data = ig_get("me/media", fields=ig.FIELDS, **params)
 
     out = []
     for post in (data.get("data") or []):
@@ -184,9 +191,10 @@ def ig_recent(limit: int = 24) -> list:
                             "caption": text, "date": date,
                             "video": post.get("media_type") == "VIDEO"})
 
-        if len(out) >= IG_MAX_TILES:
-            break
-    return out[:IG_MAX_TILES]
+    # 途中で切ると続きの投稿が抜けるので、受け取った分はすべて並べる
+    paging = data.get("paging") or {}
+    nxt = ((paging.get("cursors") or {}).get("after") or "") if paging.get("next") else ""
+    return {"items": out, "next": nxt}
 
 
 def ig_message(e: Exception) -> str:
@@ -341,6 +349,10 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
     </div>
     <div class="modal__body">
       <div class="pickgrid" id="pickGrid"></div>
+      <div class="pickmore" id="igMore" hidden>
+        <button class="btn" type="button" id="igMoreBtn">もっと前の投稿を見る</button>
+        <p class="pickmore__end" id="igEnd" hidden>これより前の投稿はありません。</p>
+      </div>
       <div class="igsetup" id="igSetup" hidden>
         <p class="igsetup__lead">インスタグラムの投稿から写真を選べるようにします。<br>
           最初に一度だけ、読み取り用のカギ（アクセストークン）を登録してください。</p>
@@ -1028,8 +1040,10 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/instagram/media":
                 if not ig_token():
                     return self.send_json({"configured": False, "items": []})
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                after = (query.get("after") or [""])[0]
                 try:
-                    return self.send_json({"configured": True, "items": ig_recent()})
+                    return self.send_json({"configured": True, **ig_recent(after=after)})
                 except Exception as e:
                     return self.send_json({"configured": True, "items": [],
                                            "error": ig_message(e)})

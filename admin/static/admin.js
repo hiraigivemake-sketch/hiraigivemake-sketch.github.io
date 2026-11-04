@@ -31,6 +31,10 @@
   var igToken = document.getElementById("igToken");
   var igSave = document.getElementById("igSave");
   var igError = document.getElementById("igError");
+  var igMore = document.getElementById("igMore");
+  var igMoreBtn = document.getElementById("igMoreBtn");
+  var igEnd = document.getElementById("igEnd");
+  var igNext = "";
   var allImages = [];
   var onPick = null;
 
@@ -49,6 +53,7 @@
   /* ---------------------------------------- 画像ライブラリ表示 */
   function showLibrary() {
     igSetup.hidden = true;
+    if (igMore) igMore.hidden = true;
     pickGrid.hidden = false;
     pickSearch.parentNode.hidden = false;
     pickIg.hidden = false;
@@ -66,19 +71,48 @@
     pickSearch.parentNode.hidden = true;
     pickIg.hidden = true;
     pickLib.hidden = false;
+    if (igMore) igMore.hidden = true;
     pickGrid.innerHTML = '<p style="color:#6e5a47">インスタグラムから読み込んでいます…</p>';
+    chosen = [];
+    updateChosenBar();
 
-    fetch("/api/instagram/media")
-      .then(function (r) { return r.json(); })
+    fetchInstagram("")
       .then(function (d) {
         if (!d.configured) { showIgSetup(""); return; }
         if (d.error) { pickGrid.innerHTML = '<p style="color:#b03a24">' + d.error + "</p>"; return; }
         if (!d.items.length) { pickGrid.innerHTML = '<p style="color:#6e5a47">投稿が見つかりませんでした。</p>'; return; }
-        renderInstagram(d.items);
+        pickGrid.innerHTML = "";
+        addInstagram(d.items, d.next);
       })
       .catch(function () {
         pickGrid.innerHTML = '<p style="color:#b03a24">読み込みに失敗しました。</p>';
       });
+  }
+
+  function fetchInstagram(after) {
+    var url = "/api/instagram/media" + (after ? "?after=" + encodeURIComponent(after) : "");
+    return fetch(url).then(function (r) { return r.json(); });
+  }
+
+  /* 「もっと前の投稿を見る」：続きを読み込んで、今の一覧の下に足す */
+  if (igMoreBtn) {
+    igMoreBtn.addEventListener("click", function () {
+      if (!igNext) return;
+      igMoreBtn.disabled = true;
+      igMoreBtn.textContent = "読み込んでいます…";
+      fetchInstagram(igNext)
+        .then(function (d) {
+          igMoreBtn.disabled = false;
+          igMoreBtn.textContent = "もっと前の投稿を見る";
+          if (d.error || !d.items) { toast(d.error || "読み込めませんでした。", true); return; }
+          addInstagram(d.items, d.next);
+        })
+        .catch(function () {
+          igMoreBtn.disabled = false;
+          igMoreBtn.textContent = "もっと前の投稿を見る";
+          toast("読み込みに失敗しました。", true);
+        });
+    });
   }
 
   function importOne(id) {
@@ -89,9 +123,7 @@
     }).then(function (r) { return r.json(); });
   }
 
-  function renderInstagram(items) {
-    pickGrid.innerHTML = "";
-    chosen = [];
+  function addInstagram(items, next) {
     items.forEach(function (post) {
       var b = document.createElement("button");
       b.type = "button";
@@ -120,6 +152,12 @@
       });
       pickGrid.appendChild(b);
     });
+    igNext = next || "";
+    if (igMore) {
+      igMore.hidden = false;
+      igMoreBtn.hidden = !igNext;
+      igEnd.hidden = !!igNext;
+    }
     updateChosenBar();
   }
 
@@ -161,6 +199,7 @@
   /* ---------------------------------------- カギの登録 */
   function showIgSetup(message) {
     pickGrid.hidden = true;
+    if (igMore) igMore.hidden = true;
     igSetup.hidden = false;
     igError.textContent = message || "";
     igToken.value = "";
