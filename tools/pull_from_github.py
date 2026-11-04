@@ -97,7 +97,7 @@ def main() -> None:
         unsent = count("@{u}..HEAD")
         if unsent:
             print(f"（このパソコンにまだ送っていない変更が {unsent} 件あります。"
-                  "編集が終わったら「⑥ 変更をGitHubに送る」を実行してください）")
+                  "編集画面で保存すると一緒に送られます。今すぐ送るときは「⑥ 変更をGitHubに送る」）")
         return
 
     print(f"ほかのパソコンの変更 {incoming} 件を受け取ります...")

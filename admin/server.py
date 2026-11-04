@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -48,6 +50,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import build as builder  # noqa: E402
 import labels as L  # noqa: E402
 import fetch_instagram as ig  # noqa: E402
+import send_to_github as sender  # noqa: E402
 
 IMAGE_EXT = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".svg", ".avif"}
 
@@ -374,6 +377,10 @@ def shell(title: str, body: str, active: str = "", view_url: str = "") -> bytes:
 <header class="topbar">
   <span class="topbar__brand">クリケア サイト管理</span>
   <div class="topbar__actions">
+    <span class="sendstate" id="sendState" hidden>
+      <span class="sendstate__text" id="sendStateText"></span>
+      <button class="btn btn--sm" type="button" id="sendNow" hidden>今すぐ送る</button>
+    </span>
     <a class="btn" href="{view_url or PREVIEW_URL}" target="_blank">サイトを見る</a>
     <a class="btn" href="/">ホーム</a>
   </div>
@@ -670,13 +677,120 @@ def write_post(path: Path, meta: dict, body: str) -> None:
     path.write_text("\n".join(lines) + body.replace("\r\n", "\n").strip() + "\n", encoding="utf-8")
 
 
+# サイト生成（dist）を2つ同時に書かないための鍵。自動送信の点検と保存が重なっても壊れない。
+BUILD_LOCK = threading.Lock()
+
+
 def run_build():
     try:
         # 手元のプレビューでは、公開予定の記事もあわせて見えるようにする
-        s = builder.build(include_future=True)
+        with BUILD_LOCK:
+            s = builder.build(include_future=True)
         return True, f"保存しました（ページ{s['pages']}件／ブログ{s['blog']}件／採用{s['recruit']}件）"
     except Exception as e:
         return False, f"保存はできましたが、サイト生成でエラーが出ました: {e}"
+
+
+# ------------------------------------------- 保存したら、自動でGitHubへ送る
+def check_for_publish() -> tuple[bool, str]:
+    """公開サイトと同じ中身を作って点検し、手元の表示に戻す（⑥と同じ点検）。"""
+    with BUILD_LOCK:
+        try:
+            builder.build(include_future=False)
+            r = subprocess.run([sys.executable, str(ROOT / "tools" / "check.py")],
+                               capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", cwd=ROOT,
+                               env=dict(os.environ, PYTHONIOENCODING="utf-8"))
+            return r.returncode == 0, (r.stdout or "") + (r.stderr or "")
+        finally:
+            try:
+                builder.build(include_future=True)
+            except Exception:
+                pass
+
+
+class AutoSender:
+    """保存のたびに、少し待ってから裏で GitHub へ送る（⑥と同じ手順）。
+
+    続けて何度か保存したときは、最後の保存から DELAY 秒たってから1回にまとめて送る。
+    送っている最中にまた保存されたら、終わったあとにもう一度送る。
+    """
+    DELAY = 5
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.wake = threading.Event()
+        self.due = 0.0
+        self.pending = False
+        self.state = "idle"      # idle / unsent / waiting / sending / done / error
+        self.message = ""
+        self.detail = ""
+        threading.Thread(target=self._loop, daemon=True).start()
+        threading.Thread(target=self._look_unsent, daemon=True).start()
+
+    def status(self) -> dict:
+        with self.lock:
+            return {"state": self.state, "message": self.message, "detail": self.detail}
+
+    def request(self, delay: float | None = None) -> None:
+        with self.lock:
+            self.due = time.time() + (self.DELAY if delay is None else delay)
+            self.pending = True
+            if self.state != "sending":
+                self.state, self.message, self.detail = "waiting", "まもなくホームページへ送ります…", ""
+        self.wake.set()
+
+    def _look_unsent(self) -> None:
+        """起動したとき、前回送っていない変更が残っていれば知らせる（勝手には送らない）。"""
+        try:
+            left = sender.unsent()
+        except Exception:
+            return
+        with self.lock:
+            if left and self.state == "idle":
+                self.state = "unsent"
+                self.message = "まだホームページに送っていない変更があります"
+
+    def _loop(self) -> None:
+        sent_any = False                      # 続けて送ったうちの、どれかで実際に送れたか
+        while True:
+            self.wake.wait()
+            while True:                       # 最後の保存から DELAY 秒たつまで待つ
+                with self.lock:
+                    left = self.due - time.time()
+                if left <= 0:
+                    break
+                time.sleep(min(left, 1.0))
+            with self.lock:
+                self.wake.clear()
+                self.pending = False
+                self.state, self.message, self.detail = "sending", "ホームページへ送っています…", ""
+
+            detail = ""
+            try:
+                sent, message = sender.send(say=lambda *a: None, check=check_for_publish)
+                state = "done"
+                sent_any = sent_any or sent
+            except sender.SendFailed as e:
+                state, message, detail = "error", e.message, e.detail
+            except Exception as e:
+                state, message = "error", f"送れませんでした（{type(e).__name__}: {e}）"
+
+            with self.lock:
+                if self.pending:              # 送っている間にまた保存された → もう一度送る
+                    self.state, self.message, self.detail = "waiting", "まもなくホームページへ送ります…", ""
+                    continue
+                if state == "done":
+                    stamp = datetime.now(JST).strftime("%H:%M")
+                    message = (f"{stamp} ホームページへ送りました（1〜2分で反映）" if sent_any
+                               else f"{stamp} 送る変更はありません（最新の状態です）")
+                self.state, self.message, self.detail = state, message, detail
+            sent_any = False
+            if state == "error":
+                print("⚠ 自動送信: " + message + ("\n" + detail if detail else ""))
+
+
+AUTO = AutoSender()
 
 
 # ================================================================= 各画面
@@ -1037,6 +1151,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_html(shell("点検", view_check(), "check"))
             if p == "/api/images":
                 return self.send_json({"images": list_images()})
+            if p == "/api/publish/status":
+                return self.send_json(AUTO.status())
             if p == "/api/instagram/media":
                 if not ig_token():
                     return self.send_json({"configured": False, "items": []})
@@ -1095,6 +1211,8 @@ class Handler(BaseHTTPRequestHandler):
                         merged[key] = original[key]
                 path.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 ok, msg = run_build()
+                if ok:
+                    AUTO.request()
                 return self.send_json({"ok": True, "message": msg} if ok else {"ok": False, "error": msg})
 
             # --- 記事保存 ---------------------------------------------
@@ -1128,11 +1246,20 @@ class Handler(BaseHTTPRequestHandler):
                 res = {"ok": ok, "message": msg} if ok else {"ok": False, "error": msg}
                 if ok:
                     res["redirect"] = redirect
+                    AUTO.request()
                 return self.send_json(res)
 
             # --- 画像アップロード -------------------------------------
             if p == "/api/upload":
-                return self.send_json({"paths": self.save_uploads()})
+                paths = self.save_uploads()
+                if paths:
+                    AUTO.request()
+                return self.send_json({"paths": paths})
+
+            # --- 今すぐGitHubへ送る（自動送信が失敗したとき・起動時に未送信があるとき）
+            if p == "/api/publish":
+                AUTO.request(delay=0)
+                return self.send_json({"ok": True, **AUTO.status()})
 
             if p == "/api/instagram/token":
                 token = str(self.body_json().get("token", "")).strip()
@@ -1206,6 +1333,7 @@ class Handler(BaseHTTPRequestHandler):
                 trash.mkdir(exist_ok=True)
                 shutil.move(str(src), str(trash / name))
                 run_build()
+                AUTO.request()
                 return self.send_json({"ok": True})
 
             # --- 記事削除 ---------------------------------------------
@@ -1217,6 +1345,7 @@ class Handler(BaseHTTPRequestHandler):
                 if target.exists():
                     shutil.move(str(target), str(trash / filename))
                 run_build()
+                AUTO.request()
                 return self.redirect(f"/list/{kind}")
         except Exception as e:
             return self.send_json({"ok": False, "error": str(e)}, 500)

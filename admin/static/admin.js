@@ -829,4 +829,51 @@
     window.addEventListener("load", forceEmpty);
     window.addEventListener("pageshow", function () { typed = false; forceEmpty(); });
   }
+
+  /* ------------------------------------------- ホームページへの自動送信の状況 */
+  // 保存すると、編集画面が裏で GitHub へ送る。その進み具合を画面の上に出す。
+  var sendState = document.getElementById("sendState");
+  if (sendState) {
+    var sendText = document.getElementById("sendStateText");
+    var sendNow = document.getElementById("sendNow");
+    var sendFull = "";
+    var marks = { waiting: "⏳ ", sending: "⏳ ", done: "✓ ", error: "⚠ ", unsent: "● " };
+
+    var showSend = function (s) {
+      var st = s.state || "idle";
+      sendState.hidden = st === "idle";
+      sendState.className = "sendstate sendstate--" + st;
+      sendText.textContent = (marks[st] || "") + String(s.message || "").split("\n")[0];
+      sendFull = String(s.message || "") + (s.detail ? "\n\n" + String(s.detail).slice(0, 1500) : "");
+      sendState.title = st === "error" ? "クリックすると詳しい内容が出ます" : sendFull;
+      sendNow.hidden = !(st === "error" || st === "unsent");
+      sendNow.textContent = st === "error" ? "もう一度送る" : "今すぐ送る";
+      sendNow.disabled = false;
+      return st;
+    };
+
+    var pollSend = function () {
+      fetch("/api/publish/status")
+        .then(function (r) { return r.json(); })
+        .then(function (s) {
+          var st = showSend(s);
+          setTimeout(pollSend, st === "waiting" || st === "sending" ? 1500 : 5000);
+        })
+        .catch(function () { setTimeout(pollSend, 10000); });
+    };
+
+    sendText.addEventListener("click", function () {
+      if (sendState.classList.contains("sendstate--error")) alert(sendFull);
+    });
+
+    sendNow.addEventListener("click", function () {
+      sendNow.disabled = true;
+      fetch("/api/publish", { method: "POST" })
+        .then(function (r) { return r.json(); })
+        .then(showSend)
+        .catch(function () { sendNow.disabled = false; });
+    });
+
+    pollSend();
+  }
 })();

@@ -178,13 +178,13 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
     <text x="598" y="126" font-size="12.5" fill="var(--ink-soft)">（自動で作り直される）</text>
 
     <line x1="206" y1="94" x2="243" y2="94" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ar)"/>
-    <text x="224" y="30" font-size="11.5" font-weight="700" fill="var(--accent)">⑥を押す</text>
+    <text x="224" y="30" font-size="11.5" font-weight="700" fill="var(--accent)">保存で自動</text>
     <line x1="454" y1="94" x2="491" y2="94" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ar)"/>
     <text x="472" y="30" font-size="11.5" font-weight="700" fill="var(--accent)">自動</text>
     <text x="472" y="172" font-size="11.5" fill="var(--ink-soft)">1〜2分</text>
   </g>
 </svg>
-<figcaption>直すのは<b>自分のパソコンの中だけ</b>です。「⑥」を押してGitHubへ送ると、そこから先はすべて自動で進み、1〜2分でインターネット上のホームページが新しくなります。</figcaption>
+<figcaption>直すのは<b>自分のパソコンの中</b>です。編集画面で <b>「保存する」を押すと、数秒後に自動でGitHubへ送られ</b>、そこから先もすべて自動で進み、1〜2分でインターネット上のホームページが新しくなります。</figcaption>
 </figure>
 
 <h2>毎回の作業：4つのステップ</h2>
@@ -217,40 +217,43 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
     </div>
     <div class="stepcard__note">
       <p>黒い画面が出たあと、ブラウザで編集画面がひらきます。<b>黒い画面は閉じずにそのまま</b>にしてください。</p>
-      <p>左のメニューから直したいものを選び、書きかえたら画面下の <span class="ui">保存する</span> を押します。</p>
+      <p>左のメニューから直したいものを選び、書きかえたら画面下の <span class="ui">保存する</span> を押します。<b>保存すると、自動でホームページへ送られます。</b></p>
+      <p>保存する前に見た目を確かめたいときは、記事の編集画面の <span class="ui">保存せずに確認</span> を使ってください。日付・時刻を未来にした記事は、その日時まで公開されません（予約投稿）。</p>
       <p class="os-win">※ 「WindowsによってPCが保護されました」と出たら <span class="ui">詳細情報</span> → <span class="ui">実行</span> を押します（初回だけ）。</p>
     </div>
   </div>
 
   <div class="stepcard">
     <div class="stepcard__no">3</div>
-    <h3 class="stepcard__title">できあがりを確認する</h3>
+    <h3 class="stepcard__title">送られたことを確認する</h3>
     <div class="stepcard__do">
-      編集画面の右上 <span class="ui">サイトを見る</span> を押す
+      編集画面の右上が <b>「✓ ホームページへ送りました」</b> になるのを待つ
     </div>
     <div class="stepcard__note">
-      <p>実際のホームページの見た目で確認できます。おかしければ編集画面に戻って直せば大丈夫です。<b>この時点ではまだ、インターネット上のホームページは変わっていません。</b></p>
-      <p>確認できたら、ブラウザと黒い画面を閉じます。</p>
+      <p>保存してから10秒ほどで「⏳ 送っています…」→「✓ 送りました」に変わります。1〜2分後にホームページが新しくなります。</p>
+      <p><b>「✓」になる前に黒い画面を閉じないでください。</b>送信が途中で止まります（その場合も内容は消えず、次に編集画面を開いたとき「今すぐ送る」が出ます）。</p>
+      <p>送る前に自動で点検されるので、リンク切れなどがあれば送信は止まります。<b>壊れたものが公開される心配はありません。</b></p>
     </div>
   </div>
 
   <div class="stepcard">
     <div class="stepcard__no">4</div>
-    <h3 class="stepcard__title">GitHubに送って公開する</h3>
+    <h3 class="stepcard__title">送れなかったとき</h3>
     <div class="stepcard__do">
-      <span class="os-mac"><span class="file">⑥ 変更をGitHubに送る.command</span> をダブルクリック</span>
-      <span class="os-win"><span class="file">Windows用</span> フォルダの <span class="file">⑥ 変更をGitHubに送る.bat</span> をダブルクリック</span>
+      右上が赤い <b>「⚠」</b> になったら、その文字をクリックして理由を読む
     </div>
     <div class="stepcard__note">
-      <p>黒い画面に <b>「✅ 送信しました」</b> と出れば成功です。1〜2分後にホームページが新しくなります。</p>
-      <p>送る前に自動で点検されるので、リンク切れなどがあれば送信は止まります。<b>壊れたものが公開される心配はありません。</b></p>
+      <p>点検で問題が見つかったときは、直して保存し直せば、もう一度自動で送られます。インターネットの不調などのときは <span class="ui">もう一度送る</span> を押してください。</p>
+      <p>編集画面を使わずに送りたいときは、これまでどおり
+        <span class="os-mac"><span class="file">⑥ 変更をGitHubに送る.command</span></span><span class="os-win"><span class="file">Windows用</span> フォルダの <span class="file">⑥ 変更をGitHubに送る.bat</span></span>
+        をダブルクリックしても送れます。</p>
     </div>
   </div>
 
 </div>
 
 <div class="good">
-  <p><b>迷ったら。</b>ステップ4まで進んでいなければ、インターネット上のホームページは何も変わりません。編集画面でいくら触っても大丈夫なので、安心して練習してください。</p>
+  <p><b>迷ったら。</b><span class="ui">保存する</span> を押さなければ、インターネット上のホームページは何も変わりません。書きかけで止めたいときは、保存せずに画面を閉じれば大丈夫です。</p>
 </div>
 
 <h2>場面ごとのやりかた</h2>
@@ -263,7 +266,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
     <li>タイトル・日付を入れる</li>
     <li><b>サムネイル画像</b>の <span class="ui">画像を選ぶ</span> で写真を選ぶ（右上からパソコンの写真もアップロードできます）</li>
     <li>本文を書く。写真を入れたい場所で <span class="ui">本文に画像を入れる</span> を押す</li>
-    <li>下の <span class="ui">保存する</span> → 確認 → ステップ4（⑥を押す）</li>
+    <li>下の <span class="ui">保存する</span>（自動でホームページへ送られます）→ 右上が「✓」になるのを確認</li>
   </ol>
 </div>
 
@@ -273,7 +276,7 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
     <li>左メニューから直したいページを選ぶ</li>
     <li>写真の横の <span class="ui">画像を選ぶ</span> を押す</li>
     <li>一覧から選ぶ。新しい写真を使うなら、開いた画面の右上 <span class="ui">パソコンからアップロード</span></li>
-    <li><span class="ui">保存する</span> → 確認 → ステップ4（⑥を押す）</li>
+    <li><span class="ui">保存する</span>（自動でホームページへ送られます）→ 右上が「✓」になるのを確認</li>
   </ol>
 </div>
 
@@ -284,13 +287,13 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
     <li>「スタッフ」の見出しを開き、いちばん下の <span class="ui">＋ スタッフを追加</span> を押す</li>
     <li>空のカードができるので、名前・写真・紹介文を入れる</li>
     <li>順番は <span class="ui">↑</span> <span class="ui">↓</span> で変えられます</li>
-    <li><span class="ui">保存する</span> → 確認 → ステップ4（⑥を押す）</li>
+    <li><span class="ui">保存する</span>（自動でホームページへ送られます）→ 右上が「✓」になるのを確認</li>
   </ol>
 </div>
 
 <div class="card">
   <h3>Claude Code に直してもらったあと</h3>
-  <p>やることは同じです。ステップ3（確認）→ ステップ4（⑥を押す）だけ行ってください。</p>
+  <p>Claude Code が直したものは、編集画面で保存しない限り自動では送られません。<span class="os-mac"><span class="file">⑥ 変更をGitHubに送る.command</span></span><span class="os-win"><span class="file">⑥ 変更をGitHubに送る.bat</span></span> を押すか、次に編集画面で何かを保存したときに一緒に送られます。編集画面を開き直したとき右上に <span class="ui">今すぐ送る</span> が出ていれば、それを押しても送れます。</p>
   <p>どこが変わったか目で確かめたいときは、GitHub Desktop を開くと、左に変わったファイル、右に「赤＝消えた文字／緑＝増えた文字」が色分けで出ます。</p>
 </div>
 
@@ -362,10 +365,9 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius
   <ol>
     <li><b>GitHub Desktop で Fetch origin → Pull origin</b><span>他のパソコンでも編集している場合のみ。1台だけなら飛ばしてOK</span></li>
     <li><b><span class="os-mac">① 編集をはじめる.command</span><span class="os-win">Windows用 → ① 編集をはじめる.bat</span> をダブルクリック</b><span>黒い画面は閉じずにそのまま</span></li>
-    <li><b>編集画面で直して「保存する」を押した</b><span>押し忘れると反映されません</span></li>
-    <li><b>「サイトを見る」で確認した</b><span>おかしければ戻って直す</span></li>
-    <li><b>ブラウザと黒い画面を閉じた</b><span></span></li>
-    <li><b><span class="os-mac">⑥ 変更をGitHubに送る.command</span><span class="os-win">Windows用 → ⑥ 変更をGitHubに送る.bat</span> をダブルクリック</b><span>「✅ 送信しました」と出れば成功</span></li>
+    <li><b>編集画面で直して「保存する」を押した</b><span>押し忘れると反映されません。保存すると自動で送られます</span></li>
+    <li><b>右上が「✓ ホームページへ送りました」になった</b><span>赤い「⚠」なら、クリックして理由を読む</span></li>
+    <li><b>ブラウザと黒い画面を閉じた</b><span>「✓」になってから閉じる</span></li>
     <li><b>1〜2分待って、ホームページを見て確認した</b><span>https://hiraigivemake-sketch.github.io/</span></li>
   </ol>
 </div>

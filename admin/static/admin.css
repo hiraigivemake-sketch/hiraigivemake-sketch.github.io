@@ -47,7 +47,20 @@ code { font-size: .85em; background: var(--ground); padding: 1px 6px; border-rad
   border-bottom: 1px solid var(--rule);
 }
 .topbar__brand { font-weight: 800; color: var(--orange); font-size: 16px; white-space: nowrap; }
-.topbar__actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.topbar__actions { margin-left: auto; display: flex; gap: 8px; align-items: center; min-width: 0; }
+
+/* ホームページへの自動送信の状況 */
+.sendstate {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+  padding: 4px 6px 4px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; line-height: 1.5;
+  background: var(--orange-soft); color: #a55600;
+}
+.sendstate__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34vw; }
+.sendstate--done { background: #e6f3ea; color: var(--ok); padding-right: 12px; }
+.sendstate--waiting, .sendstate--sending { padding-right: 12px; }
+.sendstate--error { background: #fbe7e4; color: var(--danger); }
+.sendstate--error .sendstate__text { cursor: pointer; text-decoration: underline dotted; }
 
 /* ---------------------------------------------------------- ボタン */
 .btn {
